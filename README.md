@@ -1,5 +1,3 @@
-# Brainwave_Matrix_Intern
-
 # **🔍 Phishing Link Scanner**  
 
 🚀 A **super cool, modern, and interactive** phishing link scanner built with **FastAPI (Python)** for the backend and **HTML, CSS, JavaScript, Node.js** for the frontend.  
@@ -14,7 +12,7 @@
 
 ## **📂 Project Structure**
 ```
-Brainwave_Matrix_Intern/
+Phishing_Link_Scanner/
 │-- backend/
 │   ├── main.py          # FastAPI backend
 │   ├── scanner.py       # Phishing detection logic
@@ -35,8 +33,8 @@ Brainwave_Matrix_Intern/
 
 ### **1️⃣ Clone the Repository**
 ```bash
-git clone https://github.com/Ronitraj07/Brainwave_Matrix_Intern.git
-cd Brainwave_Matrix_Intern
+git clone https://github.com/Ronitraj07/Phishing_Link_Scanner.git
+cd Phishing_Link_Scanner
 ```
 
 ---
