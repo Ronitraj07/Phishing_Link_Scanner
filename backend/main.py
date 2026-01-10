@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from scanner import scan_url
 
 app = FastAPI()
@@ -14,6 +15,7 @@ CORS_ORIGINS = [
     "http://localhost:8000",  # Local backend
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8000",
+    "https://phishing-scanner.vercel.app",  # Production frontend
 ]
 
 app.add_middleware(
@@ -23,6 +25,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request model for POST requests
+class ScanRequest(BaseModel):
+    url: str
 
 @app.get("/")
 def read_root():
@@ -34,15 +40,40 @@ def health_check():
     """Health check endpoint for deployment verification"""
     return {"status": "Backend is running!", "environment": os.getenv("ENV", "development")}
 
-@app.get("/scan/")
-def scan_endpoint(url: str):
-    """Scan a URL for phishing indicators"""
-    return scan_url(url)
+@app.post("/api/scan")
+def api_scan_endpoint(request: ScanRequest):
+    """API endpoint to scan a URL for phishing indicators - POST method"""
+    url = request.url
+    result = scan_url(url)
+    
+    # Convert response to match frontend expectations
+    return {
+        "url": url,
+        "is_phishing": "Dangerous" in result.get("status", "") or "Suspicious" in result.get("status", ""),
+        "status": result.get("status", "Unknown"),
+        "details": {
+            "confidence": 0.85 if "Dangerous" in result.get("status", "") else 0.5,
+            "risk_factors": [],
+            "domain": url
+        }
+    }
 
 @app.get("/api/scan")
-def api_scan_endpoint(url: str):
-    """API endpoint to scan a URL for phishing indicators"""
-    return scan_url(url)
+def api_scan_get(url: str):
+    """API endpoint to scan a URL for phishing indicators - GET method (fallback)"""
+    result = scan_url(url)
+    
+    # Convert response to match frontend expectations
+    return {
+        "url": url,
+        "is_phishing": "Dangerous" in result.get("status", "") or "Suspicious" in result.get("status", ""),
+        "status": result.get("status", "Unknown"),
+        "details": {
+            "confidence": 0.85 if "Dangerous" in result.get("status", "") else 0.5,
+            "risk_factors": [],
+            "domain": url
+        }
+    }
 
 if __name__ == "__main__":
     import uvicorn
