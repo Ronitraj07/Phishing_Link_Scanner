@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phishing Link Scanner</title>
+    <title>PhishGuard - Protect Yourself from Phishing</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
-        // Set API URL from environment variable or default
         window.API_URL = '${API_URL}' || 'http://localhost:8000';
         if (window.API_URL === '${API_URL}') {
             window.API_URL = 'http://localhost:8000';
@@ -15,23 +15,397 @@
     </script>
 </head>
 <body>
-    <div class="container">
-        <h1>🔍 Phishing Link Scanner</h1>
-        <p>Check if a website is safe before clicking.</p>
-        
-        <div class="scan-box">
-            <input type="text" id="urlInput" placeholder="Enter a URL">
-            <button onclick="scanUrl()">Scan</button>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-shield-alt"></i>
+                <span>PhishGuard</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#scanner" class="nav-link">Scanner</a></li>
+                <li><a href="#learn" class="nav-link">Learn</a></li>
+                <li><a href="#protect" class="nav-link">Protection</a></li>
+                <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+                    <i class="fas fa-moon"></i>
+                </button></li>
+            </ul>
         </div>
+    </nav>
 
-        <div id="loading" class="hidden">⏳ Scanning...</div>
-        
-        <div id="result-box" class="hidden">
-            <p id="result"></p>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">Stay Safe Online</h1>
+            <p class="hero-subtitle">Detect phishing links and protect your digital identity</p>
+            <div class="scroll-indicator">
+                <span>Scroll to explore</span>
+                <i class="fas fa-chevron-down"></i>
+            </div>
         </div>
+        <div class="hero-background"></div>
+    </section>
 
-        <button class="toggle-theme" onclick="toggleTheme()">🌙 Toggle Mode</button>
-    </div>
+    <!-- Scanner Section -->
+    <section id="scanner" class="scanner-section">
+        <div class="section-container">
+            <div class="section-header">
+                <h2><i class="fas fa-search"></i> Link Scanner</h2>
+                <p>Analyze any URL and get instant phishing detection results</p>
+            </div>
+
+            <div class="scanner-card glass-effect">
+                <div class="input-group">
+                    <i class="fas fa-link input-icon"></i>
+                    <input 
+                        type="text" 
+                        id="urlInput" 
+                        class="url-input" 
+                        placeholder="Enter any URL you want to check..."
+                        onkeypress="handleKeyPress(event)"
+                    >
+                    <button class="scan-btn" onclick="scanUrl()">
+                        <i class="fas fa-magnifying-glass"></i>
+                        <span>Scan Now</span>
+                    </button>
+                </div>
+
+                <div id="loading" class="hidden">
+                    <div class="spinner"></div>
+                    <p>Analyzing link...</p>
+                </div>
+                
+                <div id="result-box" class="hidden">
+                    <div id="result" class="result-content"></div>
+                </div>
+
+                <div class="scan-history">
+                    <p class="history-label"><i class="fas fa-history"></i> Recent Scans</p>
+                    <div id="history-list" class="history-list"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- What is Phishing Section -->
+    <section id="learn" class="learn-section">
+        <div class="section-container">
+            <div class="section-header">
+                <h2><i class="fas fa-graduation-cap"></i> What is Phishing?</h2>
+                <p>Understanding the threat that targets millions daily</p>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-card glass-effect">
+                    <div class="info-icon danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3>Definition</h3>
+                    <p>Phishing is a cyber attack where fraudsters impersonate legitimate organizations to steal sensitive information like passwords, credit cards, and personal data through deceptive emails, texts, or websites.</p>
+                </div>
+
+                <div class="info-card glass-effect">
+                    <div class="info-icon warning">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3>Scale of the Problem</h3>
+                    <p>Over 3.4 billion phishing emails are sent daily. Companies lose an average of $1.6 million per phishing attack. More than 90% of data breaches start with phishing.</p>
+                </div>
+
+                <div class="info-card glass-effect">
+                    <div class="info-icon info">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <h3>Common Types</h3>
+                    <p><strong>Email Phishing:</strong> Fake emails mimicking banks or services<br><strong>Spear Phishing:</strong> Targeted attacks on specific individuals<br><strong>Clone Phishing:</strong> Replicas of legitimate websites</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Red Flags Section -->
+    <section class="flags-section">
+        <div class="section-container">
+            <div class="section-header">
+                <h2><i class="fas fa-flag"></i> Red Flags to Watch</h2>
+                <p>Learn to identify suspicious signs before it's too late</p>
+            </div>
+
+            <div class="flags-grid">
+                <div class="flag-item glass-effect">
+                    <span class="flag-number">1</span>
+                    <h4>Suspicious URLs</h4>
+                    <p>Check the domain name carefully. "amaz0n.com" or "goggle.com" instead of the real ones are dead giveaways.</p>
+                    <code>❌ https://am@zon-secure.com/login</code>
+                    <code>✅ https://www.amazon.com/login</code>
+                </div>
+
+                <div class="flag-item glass-effect">
+                    <span class="flag-number">2</span>
+                    <h4>Urgent Language</h4>
+                    <p>"Your account will be closed in 24 hours" or "Verify immediately" creates panic and makes you act without thinking.</p>
+                </div>
+
+                <div class="flag-item glass-effect">
+                    <span class="flag-number">3</span>
+                    <h4>Generic Greetings</h4>
+                    <p>"Dear Customer" instead of your name is a sign. Legitimate companies use your actual name.</p>
+                </div>
+
+                <div class="flag-item glass-effect">
+                    <span class="flag-number">4</span>
+                    <h4>Requests for Personal Info</h4>
+                    <p>Banks never ask for passwords, SSN, or credit cards via email. If they do, it's 100% a scam.</p>
+                </div>
+
+                <div class="flag-item glass-effect">
+                    <span class="flag-number">5</span>
+                    <h4>Poor Grammar & Spelling</h4>
+                    <p>Professional companies proofread. Lots of typos and grammar errors? It's likely phishing.</p>
+                </div>
+
+                <div class="flag-item glass-effect">
+                    <span class="flag-number">6</span>
+                    <h4>Suspicious Attachments</h4>
+                    <p>Unexpected files (.exe, .zip, etc.) can contain malware. Don't download from unknown sources.</p>
+                </div>
+
+                <div class="flag-item glass-effect">
+                    <span class="flag-number">7</span>
+                    <h4>Mismatched Links</h4>
+                    <p>Hover over links to see the actual URL. If it doesn't match the text shown, don't click it.</p>
+                </div>
+
+                <div class="flag-item glass-effect">
+                    <span class="flag-number">8</span>
+                    <h4>Too Good to Be True</h4>
+                    <p>"You won a prize you didn't enter" or "Claim your free money" - these are classic phishing tactics.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Protection Tips Section -->
+    <section id="protect" class="protect-section">
+        <div class="section-container">
+            <div class="section-header">
+                <h2><i class="fas fa-lock"></i> How to Protect Yourself</h2>
+                <p>Practical steps to stay safe from phishing attacks</p>
+            </div>
+
+            <div class="protect-grid">
+                <div class="protect-card glass-effect">
+                    <div class="protect-icon">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <h3>Use Strong Passwords</h3>
+                    <ul>
+                        <li>At least 12 characters long</li>
+                        <li>Mix uppercase, lowercase, numbers & symbols</li>
+                        <li>Unique for each account</li>
+                        <li>Use a password manager (Bitwarden, 1Password)</li>
+                    </ul>
+                </div>
+
+                <div class="protect-card glass-effect">
+                    <div class="protect-icon">
+                        <i class="fas fa-shield"></i>
+                    </div>
+                    <h3>Enable 2FA / MFA</h3>
+                    <ul>
+                        <li>Two-Factor Authentication adds a second layer</li>
+                        <li>Use authenticator apps (Google Authenticator, Authy)</li>
+                        <li>Avoid SMS 2FA if possible (can be intercepted)</li>
+                        <li>Enable on email, banking, social media accounts</li>
+                    </ul>
+                </div>
+
+                <div class="protect-card glass-effect">
+                    <div class="protect-icon">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <h3>Verify Before Acting</h3>
+                    <ul>
+                        <li>Don't click links in suspicious emails</li>
+                        <li>Go directly to the website by typing the URL</li>
+                        <li>Call the company using a known number</li>
+                        <li>Ask colleagues if they received similar emails</li>
+                    </ul>
+                </div>
+
+                <div class="protect-card glass-effect">
+                    <div class="protect-icon">
+                        <i class="fas fa-laptop"></i>
+                    </div>
+                    <h3>Keep Systems Updated</h3>
+                    <ul>
+                        <li>Update OS regularly (Windows, macOS, Linux)</li>
+                        <li>Update all applications and browsers</li>
+                        <li>Install security patches immediately</li>
+                        <li>Use reputable antivirus software</li>
+                    </ul>
+                </div>
+
+                <div class="protect-card glass-effect">
+                    <div class="protect-icon">
+                        <i class="fas fa-filter"></i>
+                    </div>
+                    <h3>Use Email Filters</h3>
+                    <ul>
+                        <li>Enable spam filters in your email client</li>
+                        <li>Mark phishing emails as spam/phishing</li>
+                        <li>Use browser extensions (e.g., Bitdefender TrafficLight)</li>
+                        <li>Be cautious of emails from new senders</li>
+                    </ul>
+                </div>
+
+                <div class="protect-card glass-effect">
+                    <div class="protect-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3>Think Before You Click</h3>
+                    <ul>
+                        <li>Stop and think before clicking any link</li>
+                        <li>Hover over links to see actual URL</li>
+                        <li>Check sender email address carefully</li>
+                        <li>Never download unexpected attachments</li>
+                    </ul>
+                </div>
+
+                <div class="protect-card glass-effect">
+                    <div class="protect-icon">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <h3>Monitor Your Accounts</h3>
+                    <ul>
+                        <li>Check bank statements regularly</li>
+                        <li>Monitor credit reports (annual free check)</li>
+                        <li>Set up account alerts for suspicious activity</li>
+                        <li>Use identity theft protection services</li>
+                    </ul>
+                </div>
+
+                <div class="protect-card glass-effect">
+                    <div class="protect-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3>Report & Share</h3>
+                    <ul>
+                        <li>Report phishing emails to the company</li>
+                        <li>Forward suspicious emails to Anti-Phishing WG</li>
+                        <li>Report to FTC at ReportFraud.ftc.gov</li>
+                        <li>Educate friends and family about risks</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- If You're Phished Section -->
+    <section class="emergency-section">
+        <div class="section-container">
+            <div class="section-header">
+                <h2><i class="fas fa-medkit"></i> If You've Been Phished</h2>
+                <p>Immediate steps to minimize damage</p>
+            </div>
+
+            <div class="emergency-steps">
+                <div class="step glass-effect">
+                    <div class="step-number">1</div>
+                    <h4>Change Your Password Immediately</h4>
+                    <p>Change the password for the compromised account and any other accounts using similar passwords. Do this from a different device if possible.</p>
+                </div>
+
+                <div class="step glass-effect">
+                    <div class="step-number">2</div>
+                    <h4>Enable 2FA/MFA</h4>
+                    <p>If not already enabled, activate two-factor authentication on all accounts, especially email and banking.</p>
+                </div>
+
+                <div class="step glass-effect">
+                    <div class="step-number">3</div>
+                    <h4>Monitor for Fraud</h4>
+                    <p>Check credit card and bank statements for unauthorized transactions. Consider placing a fraud alert with credit bureaus.</p>
+                </div>
+
+                <div class="step glass-effect">
+                    <div class="step-number">4</div>
+                    <h4>Run Security Scan</h4>
+                    <p>Scan your device with reputable antivirus software to detect and remove any malware installed by phishing links.</p>
+                </div>
+
+                <div class="step glass-effect">
+                    <div class="step-number">5</div>
+                    <h4>Notify Relevant Services</h4>
+                    <p>Contact your bank, email provider, and any other affected services. They can help secure your account and monitor for unauthorized access.</p>
+                </div>
+
+                <div class="step glass-effect">
+                    <div class="step-number">6</div>
+                    <h4>Report to Authorities</h4>
+                    <p>Report the incident to IC3.gov (FBI), your local police, and the FTC. Keep documentation of all communications.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Statistics Section -->
+    <section class="stats-section">
+        <div class="section-container">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-pie"></i> Phishing Statistics</h2>
+                <p>The growing threat of phishing attacks worldwide</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card glass-effect">
+                    <div class="stat-number">3.4B+</div>
+                    <p>Phishing emails sent daily</p>
+                </div>
+                <div class="stat-card glass-effect">
+                    <div class="stat-number">90%</div>
+                    <p>Data breaches start with phishing</p>
+                </div>
+                <div class="stat-card glass-effect">
+                    <div class="stat-number">$1.6M</div>
+                    <p>Avg loss per attack</p>
+                </div>
+                <div class="stat-card glass-effect">
+                    <div class="stat-number">1 in 101</div>
+                    <p>Emails are phishing attacks</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4><i class="fas fa-shield-alt"></i> PhishGuard</h4>
+                <p>Protecting users from phishing attacks one scan at a time.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Quick Links</h4>
+                <ul>
+                    <li><a href="#scanner">Scanner</a></li>
+                    <li><a href="#learn">Learn</a></li>
+                    <li><a href="#protect">Protection</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="https://www.cisa.gov/" target="_blank">CISA.gov</a></li>
+                    <li><a href="https://www.ic3.gov/" target="_blank">FBI IC3</a></li>
+                    <li><a href="https://reportfraud.ftc.gov/" target="_blank">FTC Report</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 PhishGuard. Stay safe online. | Made with <i class="fas fa-heart"></i> for cybersecurity</p>
+        </div>
+    </footer>
 
     <script src="script.js"></script>
 </body>
