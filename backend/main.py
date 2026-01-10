@@ -15,7 +15,6 @@ CORS_ORIGINS = [
     "http://localhost:8000",  # Local backend
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8000",
-    "https://phishing-scanner.vercel.app",  # Production frontend
 ]
 
 app.add_middleware(
@@ -38,7 +37,7 @@ def read_root():
 @app.get("/api/health")
 def health_check():
     """Health check endpoint for deployment verification"""
-    return {"status": "Backend is running!", "environment": os.getenv("ENV", "development")}
+    return {"status": "Backend is running!", "environment": os.getenv("ENV", "production")}
 
 @app.post("/api/scan")
 def api_scan_endpoint(request: ScanRequest):
