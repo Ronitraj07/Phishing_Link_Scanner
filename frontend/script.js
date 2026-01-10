@@ -1,13 +1,43 @@
+// API Configuration
+window.API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000'
+    : 'https://phishing-scanner-backend.onrender.com';
+
+console.log('API URL configured:', window.API_URL);
+
 // Theme Management
+const body = document.body;
+const themeBtn = document.querySelector('.theme-toggle');
 const savedTheme = localStorage.getItem('theme') || 'dark';
+
+// Apply saved theme on load
 if (savedTheme === 'light') {
-    document.body.classList.add('light-mode');
+    body.classList.add('light-mode');
+    updateThemeIcon();
+}
+
+function updateThemeIcon() {
+    const icon = themeBtn.querySelector('i');
+    if (body.classList.contains('light-mode')) {
+        icon.classList.remove('fa-moon');
+        icon.classList.add('fa-sun');
+    } else {
+        icon.classList.remove('fa-sun');
+        icon.classList.add('fa-moon');
+    }
 }
 
 function toggleTheme() {
-    document.body.classList.toggle('light-mode');
-    const theme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+    body.classList.toggle('light-mode');
+    const theme = body.classList.contains('light-mode') ? 'light' : 'dark';
     localStorage.setItem('theme', theme);
+    updateThemeIcon();
+    console.log('Theme switched to:', theme);
+}
+
+// Add theme toggle button event listener
+if (themeBtn) {
+    themeBtn.addEventListener('click', toggleTheme);
 }
 
 // History Management
@@ -105,7 +135,7 @@ async function scanUrl() {
     } catch (error) {
         showLoading(false);
         console.error('Error:', error);
-        showError('Failed to scan URL. Please check your connection and try again.');
+        showError('Failed to scan URL. Make sure your backend is running at: ' + window.API_URL);
     }
 }
 
@@ -225,9 +255,10 @@ window.addEventListener('load', async () => {
     try {
         const response = await fetch(`${window.API_URL}/api/health`);
         if (response.ok) {
+            const data = await response.json();
             console.log('✅ Backend is connected and running');
         }
     } catch (error) {
-        console.warn('⚠️ Backend might be offline:', error);
+        console.warn('⚠️ Backend might be offline. Using API URL:', window.API_URL);
     }
 });
