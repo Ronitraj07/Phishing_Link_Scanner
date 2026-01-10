@@ -1,3 +1,8 @@
+// Get API URL from environment or default to local
+const API_URL = window.API_URL || 'http://localhost:8000';
+
+console.log('API URL:', API_URL);
+
 async function scanUrl() {
     let urlInput = document.getElementById("urlInput");
     let resultBox = document.getElementById("result-box");
@@ -15,8 +20,35 @@ async function scanUrl() {
     resultBox.classList.add("hidden");
 
     try {
-        let response = await fetch(`http://127.0.0.1:8000/scan/?url=${encodeURIComponent(url)}`);
-        let data = await response.json();
+        // Try API endpoint first, fallback to /scan/
+        const endpoints = [
+            `${API_URL}/api/scan?url=${encodeURIComponent(url)}`,
+            `${API_URL}/scan/?url=${encodeURIComponent(url)}`
+        ];
+
+        let response;
+        let data;
+        let error;
+
+        for (const endpoint of endpoints) {
+            try {
+                console.log('Trying endpoint:', endpoint);
+                response = await fetch(endpoint);
+                if (response.ok) {
+                    data = await response.json();
+                    console.log('Success with endpoint:', endpoint);
+                    break;
+                }
+            } catch (e) {
+                error = e;
+                console.log('Failed with endpoint:', endpoint, e);
+            }
+        }
+
+        if (!data) {
+            throw error || new Error('All endpoints failed');
+        }
+
         loading.classList.add("hidden");
         resultBox.classList.remove("hidden");
 
@@ -26,7 +58,9 @@ async function scanUrl() {
             resultText.innerHTML = `✅ <span class="safe">${data.status}</span>`;
         }
     } catch (error) {
-        resultText.innerText = "⚠️ Error scanning the URL.";
+        console.error('Error:', error);
+        loading.classList.add("hidden");
+        resultText.innerText = "⚠️ Error scanning the URL. Make sure backend is running.";
         resultBox.classList.remove("hidden");
     }
 }
