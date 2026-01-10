@@ -8,6 +8,7 @@ colorama==0.4.6
 fastapi==0.115.9
 Flask==3.1.0
 flask-cors==5.0.1
+gunicorn==22.0.0
 h11==0.14.0
 idna==3.10
 itsdangerous==2.2.0
