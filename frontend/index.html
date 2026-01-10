@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Phishing Link Scanner</title>
     <link rel="stylesheet" href="style.css">
+    <script>
+        // Set API URL from environment variable or default
+        window.API_URL = '${API_URL}' || 'http://localhost:8000';
+        if (window.API_URL === '${API_URL}') {
+            window.API_URL = 'http://localhost:8000';
+        }
+        console.log('Configured API URL:', window.API_URL);
+    </script>
 </head>
 <body>
     <div class="container">
