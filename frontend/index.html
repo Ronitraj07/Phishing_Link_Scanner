@@ -40,45 +40,126 @@
     </section>
 
     <!-- Scanner Section -->
-    <section id="scanner" class="scanner-section">
-        <div class="section-container">
-            <div class="section-header">
-                <h2><i class="fas fa-search"></i> Link Scanner</h2>
-                <p>Analyze any URL and get instant phishing detection results</p>
+   <section class="scanner-section">
+    <div class="section-container">
+        <div class="scanner-card glass-effect">
+            <div class="input-group">
+                <i class="fas fa-search input-icon"></i>
+                <input type="url" id="urlInput" class="url-input" placeholder="Enter any URL you want to check...">
+                <button id="scanBtn" class="scan-btn">
+                    <i class="fas fa-search"></i> Scan Now
+                </button>
             </div>
 
-            <div class="scanner-card glass-effect">
-                <div class="input-group">
-                    <i class="fas fa-link input-icon"></i>
-                    <input 
-                        type="text" 
-                        id="urlInput" 
-                        class="url-input" 
-                        placeholder="Enter any URL you want to check..."
-                        onkeypress="handleKeyPress(event)"
-                    >
-                    <button class="scan-btn" onclick="scanUrl()">
-                        <i class="fas fa-magnifying-glass"></i>
-                        <span>Scan Now</span>
-                    </button>
-                </div>
+            <div id="loading" class="hidden">
+                <div class="spinner"></div>
+                <p style="color: var(--primary-light); margin-top: 1rem;">Analyzing URL...</p>
+            </div>
 
-                <div id="loading" class="hidden">
-                    <div class="spinner"></div>
-                    <p>Analyzing link...</p>
-                </div>
-                
-                <div id="result-box" class="hidden">
-                    <div id="result" class="result-content"></div>
-                </div>
+            <div id="result" class="hidden">
+                <div id="resultContent" class="result-content"></div>
+            </div>
 
-                <div class="scan-history">
-                    <p class="history-label"><i class="fas fa-history"></i> Recent Scans</p>
-                    <div id="history-list" class="history-list"></div>
+            <div class="scan-history">
+                <div class="history-label">
+                    <i class="fas fa-clock"></i> Recent Scans
                 </div>
+                <div id="historyList"></div>
             </div>
         </div>
-    </section>
+    </div>
+</section>
+
+<script>
+const scanBtn = document.getElementById('scanBtn');
+const urlInput = document.getElementById('urlInput');
+const loading = document.getElementById('loading');
+const result = document.getElementById('result');
+const resultContent = document.getElementById('resultContent');
+const historyList = document.getElementById('historyList');
+const API_URL = 'https://phishing-scanner-backend.onrender.com/api/scan';
+
+scanBtn.addEventListener('click', scanURL);
+urlInput.addEventListener('keypress', (e) => e.key === 'Enter' && scanURL());
+
+async function scanURL() {
+    const url = urlInput.value.trim();
+    if (!url) {
+        alert('Please enter a URL');
+        return;
+    }
+
+    loading.classList.remove('hidden');
+    result.classList.add('hidden');
+    resultContent.innerHTML = '';
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+
+        const data = await response.json();
+        displayResult(data);
+        addToHistory(data);
+    } catch (error) {
+        resultContent.innerHTML = `<p style="color: red;">Error scanning URL: ${error.message}</p>`;
+    } finally {
+        loading.classList.add('hidden');
+        result.classList.remove('hidden');
+    }
+}
+
+function displayResult(data) {
+    const threatClass = data.threat_level.includes('SAFE') ? 'result-safe' : 'result-dangerous';
+    
+    const html = `
+        <div class="${threatClass}">
+            <h2 style="margin-bottom: 1rem; font-size: 2rem;">
+                ${data.threat_level}
+            </h2>
+            
+            <div style="font-size: 1.3rem; margin: 1rem 0; font-weight: bold;">
+                Confidence: ${(data.confidence_score * 100).toFixed(0)}%
+            </div>
+
+            <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 10px; margin: 1.5rem 0; text-align: left;">
+                <h3 style="margin-bottom: 1rem;">📊 Analysis Details:</h3>
+                <ul style="list-style: none; padding: 0;">
+                    ${data.risk_factors.map(r => `<li style="margin: 0.6rem 0; line-height: 1.6;">${r}</li>`).join('')}
+                </ul>
+            </div>
+
+            <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px; margin-top: 1rem; font-size: 0.9rem;">
+                <strong>URL:</strong> <code style="word-break: break-all;">${data.url}</code><br>
+                <strong>Domain:</strong> ${data.domain}<br>
+                <strong>Scanned:</strong> ${new Date(data.timestamp).toLocaleString()}
+            </div>
+        </div>
+    `;
+    
+    resultContent.innerHTML = html;
+}
+
+function addToHistory(data) {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    
+    const indicator = data.confidence_score >= 0.7 ? '🔴' : '✅';
+    const shortUrl = data.url.length > 40 ? data.url.substring(0, 40) + '...' : data.url;
+    
+    item.innerHTML = `
+        <span>${indicator} ${shortUrl}</span>
+        <span style="font-size: 0.85rem; color: var(--primary-light);">${(data.confidence_score * 100).toFixed(0)}%</span>
+    `;
+    
+    historyList.insertBefore(item, historyList.firstChild);
+    if (historyList.children.length > 5) {
+        historyList.removeChild(historyList.lastChild);
+    }
+}
+</script>
 
     <!-- What is Phishing Section -->
     <section id="learn" class="learn-section">
