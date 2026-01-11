@@ -26,6 +26,12 @@ LEGITIMATE_TLDS = [
     "fr", "jp", "cn", "in", "au", "ca", "br", "ru", "it", "es"
 ]
 
+LEGITIMATE_DOMAINS = [
+    "google.com", "facebook.com", "amazon.com", "microsoft.com", "apple.com",
+    "github.com", "linkedin.com", "twitter.com", "youtube.com", "reddit.com",
+    "wikipedia.org", "stackoverflow.com", "medium.com", "dev.to", "github.io"
+]
+
 # ============ VIRUSTOTAL API ============
 def check_virustotal(url: str) -> Dict:
     """
@@ -110,7 +116,7 @@ def check_urlhaus(url: str) -> Dict:
                     "confidence": confidence
                 }
             elif query_status == "not_found":
-                return {"success": True, "is_malicious": False, "confidence": 0.1}
+                return {"success": True, "is_malicious": False, "confidence": 0.05}
             else:
                 return {"success": False, "reason": "Invalid query", "confidence": 0}
         
@@ -165,40 +171,11 @@ def check_google_safe_browsing(url: str) -> Dict:
     except Exception as e:
         return {"success": False, "reason": str(e), "is_safe": True, "confidence": 0}
 
-# ============ PHISHING.AI API ============
-def check_phishing_ai(url: str) -> Dict:
-    """
-    Check URL using Phishing.AI service
-    Free API, no authentication required
-    """
-    try:
-        response = requests.get(
-            f"https://phishing.ai/api/check?url={url}",
-            timeout=10,
-            headers={"User-Agent": "PhishingScanner/1.0"}
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            if data.get("is_phishing"):
-                return {
-                    "success": True,
-                    "is_phishing": True,
-                    "confidence": data.get("confidence", 0.8)
-                }
-            else:
-                return {"success": True, "is_phishing": False, "confidence": 0.05}
-        
-        return {"success": False, "reason": "API call failed", "confidence": 0}
-    except Exception as e:
-        return {"success": False, "reason": str(e), "confidence": 0}
-
 # ============ LOCAL HEURISTIC CHECKS ============
-def check_url_heuristics(url: str) -> Tuple[int, float]:
+def check_url_heuristics(url: str) -> Tuple[int, float, List[str]]:
     """
     Local heuristic checks without external APIs
-    Returns: (risk_score, confidence)
+    Returns: (risk_score, confidence, risk_factors)
     """
     risk_score = 0
     confidence = 0.0
@@ -209,11 +186,15 @@ def check_url_heuristics(url: str) -> Tuple[int, float]:
         domain = parsed.netloc.lower()
         path = parsed.path.lower()
         
+        # Check 0: Legitimate domain whitelist (high safety)
+        if any(domain == ld or domain.endswith("." + ld) for ld in LEGITIMATE_DOMAINS):
+            return 0, 0.95, ["Verified legitimate domain"]
+        
         # Check 1: Suspicious patterns (high confidence)
         for pattern in SUSPICIOUS_PATTERNS:
             if re.search(pattern, url):
-                risk_score += 25
-                confidence += 0.25
+                risk_score += 35
+                confidence += 0.35
                 if "@" in url:
                     risk_factors.append("URL contains @ symbol (domain spoofing risk)")
                 elif re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", domain):
@@ -221,41 +202,53 @@ def check_url_heuristics(url: str) -> Tuple[int, float]:
                 elif "localhost" in url or "127.0.0.1" in url:
                     risk_factors.append("URL is localhost (development/internal)")
         
-        # Check 2: Phishing keywords (medium confidence)
+        # Check 2: Phishing keywords (medium-high confidence)
         keyword_count = sum(1 for keyword in PHISHING_KEYWORDS if keyword in path or keyword in domain)
         if keyword_count > 0:
-            risk_score += min(15 * keyword_count, 30)
-            confidence += min(0.15 * keyword_count, 0.3)
-            risk_factors.append(f"Contains {keyword_count} phishing-related keywords")
+            risk_score += min(20 * keyword_count, 40)
+            confidence += min(0.20 * keyword_count, 0.4)
+            risk_factors.append(f"Contains {keyword_count} phishing-related keyword(s)")
         
         # Check 3: Domain reputation (medium confidence)
         if domain.count(".") > 3:  # Too many subdomains
-            risk_score += 15
-            confidence += 0.15
-            risk_factors.append("Suspicious subdomain structure")
+            risk_score += 20
+            confidence += 0.2
+            risk_factors.append("Suspicious subdomain structure (too many levels)")
         
-        # Check 4: HTTPS check (low confidence boost if missing)
+        # Check 4: HTTPS check (low confidence, but important)
         if not url.startswith("https://"):
-            risk_score += 5
-            confidence += 0.05
-            risk_factors.append("Not using HTTPS encryption")
+            risk_score += 10
+            confidence += 0.1
+            risk_factors.append("Not using HTTPS encryption (no SSL/TLS)")
         
         # Check 5: Domain age simulation (check for new/suspicious TLDs)
         tld = domain.split(".")[-1].lower()
         if tld not in LEGITIMATE_TLDS and len(tld) > 3:
-            risk_score += 10
-            confidence += 0.1
-            risk_factors.append(f"Uncommon TLD detected: {tld}")
+            risk_score += 15
+            confidence += 0.15
+            risk_factors.append(f"Uncommon TLD detected: .{tld}")
         
         # Check 6: URL length (unusually long URLs are suspicious)
-        if len(url) > 100:
-            risk_score += 5
-            confidence += 0.05
-            risk_factors.append("Unusually long URL")
+        if len(url) > 120:
+            risk_score += 8
+            confidence += 0.08
+            risk_factors.append(f"Unusually long URL ({len(url)} characters)")
+        
+        # Check 7: Look for homoglyph attacks (similar-looking characters)
+        if "0" in domain and "o" in domain:  # 0 (zero) vs o (letter o)
+            risk_score += 12
+            confidence += 0.12
+            risk_factors.append("Potential homoglyph attack detected")
+        
+        # Check 8: Hyphens in domain (often used in phishing)
+        if domain.count("-") > 2:
+            risk_score += 10
+            confidence += 0.1
+            risk_factors.append("Excessive hyphens in domain (common phishing tactic)")
         
         # Normalize scores
         risk_score = min(risk_score, 100)
-        confidence = min(confidence, 0.7)  # Heuristics alone max 70%
+        confidence = min(confidence, 0.75)  # Heuristics alone max 75%
         
         return risk_score, confidence, risk_factors
     
@@ -299,7 +292,7 @@ def scan_url(url: str) -> Dict:
         "confidence": heuristic_confidence,
         "details": f"Risk score: {heuristic_score}/100"
     })
-    total_confidence += heuristic_confidence * 0.20  # 20% weight
+    total_confidence += heuristic_confidence * 0.25  # 25% weight (increased)
     if heuristic_score > 50:
         threat_indicators += 1
     all_risk_factors.extend(heuristic_factors)
@@ -332,7 +325,7 @@ def scan_url(url: str) -> Dict:
                 "confidence": gsb_confidence,
                 "details": ", ".join(gsb_result.get("threat_types", []))
             })
-            total_confidence += gsb_confidence * 0.25  # 25% weight
+            total_confidence += gsb_confidence * 0.20  # 20% weight
             if is_threat:
                 threat_indicators += 1
                 all_risk_factors.append("Flagged by Google Safe Browsing")
@@ -366,24 +359,25 @@ def scan_url(url: str) -> Dict:
     is_phishing = False
     status = "Safe"
     
+    # Multiple sources agreement = definite threat
     if threat_indicators >= 2:
-        # Multiple sources flagging = definitely phishing
         is_phishing = True
         status = "Dangerous"
-        final_confidence = min(max(final_confidence, 0.85), 0.99)
-    elif threat_indicators == 1 and final_confidence > 0.60:
-        # Single source + high confidence = suspicious
+        final_confidence = min(max(final_confidence, 0.88), 0.99)
+    # Single source + high confidence = suspicious
+    elif threat_indicators == 1 and final_confidence > 0.65:
         is_phishing = True
         status = "Suspicious"
-        final_confidence = min(final_confidence, 0.80)
-    elif final_confidence > 0.75:
-        # High local confidence = suspicious
+        final_confidence = min(final_confidence, 0.82)
+    # High local confidence alone = suspicious
+    elif final_confidence > 0.70:
         is_phishing = True
         status = "Suspicious"
     else:
-        # Safe
+        # Safe - set confidence to show how safe (NOT inverted)
         status = "Safe"
-        final_confidence = 1.0 - final_confidence  # Invert for safe URLs
+        # For safe URLs, confidence shows safety level
+        final_confidence = 1.0 - final_confidence if final_confidence > 0 else 0.95
     
     # Remove duplicates in risk factors
     all_risk_factors = list(set(all_risk_factors))
