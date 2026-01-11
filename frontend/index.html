@@ -77,7 +77,7 @@ const loading = document.getElementById('loading');
 const result = document.getElementById('result');
 const resultContent = document.getElementById('resultContent');
 const historyList = document.getElementById('historyList');
-const API_URL = 'https://phishing-link-scanner-1.onrender.com/api/scan';
+const API_URL = 'https://phishing-scanner-backend.onrender.com/api/scan';
 
 scanBtn.addEventListener('click', scanURL);
 urlInput.addEventListener('keypress', (e) => e.key === 'Enter' && scanURL());
@@ -112,29 +112,47 @@ async function scanURL() {
 }
 
 function displayResult(data) {
-    const threatClass = data.threat_level.includes('SAFE') ? 'result-safe' : 'result-dangerous';
+    const isSafe = data.threat_level.includes('SAFE');
+    const threatClass = isSafe ? 'result-safe' : 'result-dangerous';
+    const scorePercent = Math.round(data.confidence_score * 100);
     
     const html = `
         <div class="${threatClass}">
-            <h2 style="margin-bottom: 1rem; font-size: 2rem;">
+            <h2 style="margin-bottom: 0.5rem; font-size: 2rem; margin-top: 0;">
                 ${data.threat_level}
             </h2>
             
-            <div style="font-size: 1.3rem; margin: 1rem 0; font-weight: bold;">
-                Confidence: ${(data.confidence_score * 100).toFixed(0)}%
+            <div style="font-size: 1.5rem; margin: 1rem 0; font-weight: bold; letter-spacing: 1px;">
+                CONFIDENCE SCORE: ${scorePercent}%
+            </div>
+
+            <div style="width: 100%; background: rgba(0,0,0,0.3); height: 8px; border-radius: 4px; margin: 1rem 0; overflow: hidden;">
+                <div style="background: ${scorePercent > 70 ? '#ef4444' : '#10b981'}; width: ${scorePercent}%; height: 100%; transition: width 0.3s;"></div>
             </div>
 
             <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 10px; margin: 1.5rem 0; text-align: left;">
-                <h3 style="margin-bottom: 1rem;">📊 Analysis Details:</h3>
-                <ul style="list-style: none; padding: 0;">
-                    ${data.risk_factors.map(r => `<li style="margin: 0.6rem 0; line-height: 1.6;">${r}</li>`).join('')}
+                <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem;">📊 Risk Factors Found:</h3>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    ${data.risk_factors.map((r, i) => `
+                        <li style="margin: 0.8rem 0; line-height: 1.6; padding-left: 1.5rem; position: relative;">
+                            <span style="position: absolute; left: 0;">${i + 1}.</span>
+                            ${r}
+                        </li>
+                    `).join('')}
                 </ul>
             </div>
 
-            <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px; margin-top: 1rem; font-size: 0.9rem;">
-                <strong>URL:</strong> <code style="word-break: break-all;">${data.url}</code><br>
-                <strong>Domain:</strong> ${data.domain}<br>
-                <strong>Scanned:</strong> ${new Date(data.timestamp).toLocaleString()}
+            <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px; margin-top: 1rem; font-size: 0.9rem; line-height: 1.8;">
+                <strong>🔗 URL:</strong> <code style="word-break: break-all; background: rgba(0,0,0,0.3); padding: 0.2rem 0.5rem; border-radius: 3px;">${data.url}</code><br>
+                <strong>🌐 Domain:</strong> <strong style="color: var(--primary-light);">${data.domain || 'N/A'}</strong><br>
+                <strong>⏰ Scanned:</strong> ${new Date(data.timestamp).toLocaleString()}
+            </div>
+
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(99, 102, 241, 0.1); border-left: 4px solid var(--primary-light); border-radius: 6px;">
+                ${scorePercent >= 80 ? '🚨 <strong>DO NOT VISIT</strong> this URL. It shows strong phishing indicators.' : 
+                  scorePercent >= 65 ? '⚠️ <strong>CAUTION</strong>: This URL has suspicious characteristics. Verify before visiting.' :
+                  scorePercent >= 50 ? '❓ <strong>BORDERLINE</strong>: Exercise caution. Check the domain carefully.' :
+                  '✅ <strong>APPEARS SAFE</strong>: No major phishing indicators detected.'}
             </div>
         </div>
     `;
@@ -146,12 +164,13 @@ function addToHistory(data) {
     const item = document.createElement('div');
     item.className = 'history-item';
     
-    const indicator = data.confidence_score >= 0.7 ? '🔴' : '✅';
+    const score = Math.round(data.confidence_score * 100);
+    const indicator = score >= 70 ? '🔴' : score >= 50 ? '🟡' : '✅';
     const shortUrl = data.url.length > 40 ? data.url.substring(0, 40) + '...' : data.url;
     
     item.innerHTML = `
         <span>${indicator} ${shortUrl}</span>
-        <span style="font-size: 0.85rem; color: var(--primary-light);">${(data.confidence_score * 100).toFixed(0)}%</span>
+        <span style="font-size: 0.85rem; color: var(--primary-light); font-weight: bold;">${score}%</span>
     `;
     
     historyList.insertBefore(item, historyList.firstChild);
