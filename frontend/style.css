@@ -335,6 +335,13 @@ body.light-mode .glass-effect:hover {
     margin: 0 auto;
 }
 
+/* NEW: input wrapper for icon + input */
+.input-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+}
+
 .input-group {
     display: flex;
     gap: clamp(0.6rem, 2.5vw, 1.25rem);
@@ -361,6 +368,7 @@ body.light-mode .glass-effect:hover {
 .url-input {
     flex: 1;
     min-width: 160px;
+    width: 100%;
     padding: clamp(0.85rem, 2.5vw, 1.5rem) clamp(0.8rem, 2.5vw, 1.5rem) clamp(0.85rem, 2.5vw, 1.5rem) clamp(3.2rem, 4.5vw, 5rem);
     background: rgba(255, 255, 255, 0.05);
     border: 2px solid rgba(255, 255, 255, 0.1);
@@ -370,6 +378,7 @@ body.light-mode .glass-effect:hover {
     font-weight: 500;
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
+    box-sizing: border-box;
 }
 
 body.light-mode .url-input {
@@ -753,6 +762,26 @@ body.light-mode .flag-item code {
 
 /* Mobile Optimization (0px - 640px) */
 @media (max-width: 640px) {
+    html, body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .section-container,
+    .nav-container,
+    .hero-content,
+    .scanner-card,
+    .glass-effect,
+    .info-grid,
+    .protect-grid,
+    .flags-grid,
+    .stats-grid,
+    .emergency-steps {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
     /* Navbar */
     .nav-container {
         padding: 0 0.75rem;
@@ -794,6 +823,15 @@ body.light-mode .flag-item code {
         margin-top: 0.15rem;
     }
 
+    /* Hero background circle – keep inside viewport */
+    .hero-background {
+        width: 200px;
+        height: 200px;
+        top: -80px;
+        right: -40px;
+        max-width: 100%;
+    }
+
     /* Scanner section starts immediately under hero */
     .scanner-section {
         margin-top: 0;
@@ -820,13 +858,17 @@ body.light-mode .flag-item code {
         font-size: 0.85rem;
     }
 
-    /* Input row – fix icon + input alignment */
+    /* Input row – stacked; icon centered in input */
     .input-group {
         flex-direction: column;
         align-items: stretch;
         gap: 0.6rem;
         margin-bottom: 1.25rem;
         position: relative;
+    }
+
+    .input-wrapper {
+        width: 100%;
     }
 
     .input-icon {
@@ -922,14 +964,6 @@ body.light-mode .flag-item code {
     .footer-bottom {
         font-size: 0.8rem;
         padding-top: 1.25rem;
-    }
-
-    /* Hero background circle */
-    .hero-background {
-        width: 200px;
-        height: 200px;
-        top: -80px;
-        right: -100px;
     }
 }
 
