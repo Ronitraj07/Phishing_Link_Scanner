@@ -11,10 +11,10 @@
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
-            <div class="nav-brand">
+            <a href="#" class="nav-brand" onclick="scrollToTop(event)">
                 <i class="fas fa-shield-alt"></i>
                 <span>PhishGuard</span>
-            </div>
+            </a>
             <ul class="nav-menu">
                 <li><a href="#scanner" class="nav-link">Scanner</a></li>
                 <li><a href="#learn" class="nav-link">Learn</a></li>
@@ -401,5 +401,23 @@
     </footer>
 
     <script src="script.js"></script>
+    <script>
+        // Scroll to top function
+        function scrollToTop(event) {
+            event.preventDefault();
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        // Add cursor pointer to nav-brand
+        document.addEventListener('DOMContentLoaded', function() {
+            const navBrand = document.querySelector('.nav-brand');
+            if (navBrand) {
+                navBrand.style.cursor = 'pointer';
+            }
+        });
+    </script>
 </body>
 </html>
