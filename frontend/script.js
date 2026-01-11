@@ -1,16 +1,15 @@
-// API Configuration
+// API Configuration - UPDATED TO CORRECT BACKEND
 window.API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:5000'
-    : 'https://phishing-scanner-backend.onrender.com';
+    ? 'http://localhost:8000'
+    : 'https://phishing-link-scanner-1.onrender.com';
 
-console.log('API URL configured:', window.API_URL);
+console.log('✅ API URL configured:', window.API_URL);
 
 // Theme Management
 const body = document.body;
 const themeBtn = document.querySelector('.theme-toggle');
 const savedTheme = localStorage.getItem('theme') || 'dark';
 
-// Apply saved theme on load
 if (savedTheme === 'light') {
     body.classList.add('light-mode');
     updateThemeIcon();
@@ -32,10 +31,8 @@ function toggleTheme() {
     const theme = body.classList.contains('light-mode') ? 'light' : 'dark';
     localStorage.setItem('theme', theme);
     updateThemeIcon();
-    console.log('Theme switched to:', theme);
 }
 
-// Add theme toggle button event listener
 if (themeBtn) {
     themeBtn.addEventListener('click', toggleTheme);
 }
@@ -46,9 +43,7 @@ let scanHistory = JSON.parse(localStorage.getItem('scanHistory') || '[]');
 function addToHistory(url, result) {
     const timestamp = new Date().toLocaleTimeString();
     scanHistory.unshift({ url, result, timestamp });
-    if (scanHistory.length > 5) {
-        scanHistory.pop();
-    }
+    if (scanHistory.length > 5) scanHistory.pop();
     localStorage.setItem('scanHistory', JSON.stringify(scanHistory));
     displayHistory();
 }
@@ -62,16 +57,16 @@ function displayHistory() {
     
     historyList.innerHTML = scanHistory.map((item, index) => {
         const resultEmoji = item.result.includes('Safe') ? '✅' : '⚠️';
+        const shortUrl = item.url.length > 40 ? item.url.substring(0, 40) + '...' : item.url;
         return `
             <div class="history-item">
-                <span>${resultEmoji} ${item.url}</span>
+                <span>${resultEmoji} ${shortUrl}</span>
                 <span style="font-size: 0.8rem; color: rgba(241, 245, 249, 0.5);">${item.timestamp}</span>
             </div>
         `;
     }).join('');
 }
 
-// Initialize history on page load
 displayHistory();
 
 // URL Validation
@@ -101,20 +96,20 @@ async function scanUrl() {
         return;
     }
 
-    // Format the URL
     url = formatUrl(url);
 
-    // Validate URL format
     if (!isValidUrl(url)) {
         showError('Please enter a valid URL (e.g., example.com or https://example.com)');
         return;
     }
 
-    // Show loading state
     showLoading(true);
     hideResult();
 
     try {
+        console.log('🔍 Scanning:', url);
+        console.log('📡 Backend:', window.API_URL);
+        
         const response = await fetch(`${window.API_URL}/api/scan`, {
             method: 'POST',
             headers: {
@@ -128,18 +123,18 @@ async function scanUrl() {
         }
 
         const data = await response.json();
+        console.log('✅ Response:', data);
         showLoading(false);
         displayResult(data, url);
         addToHistory(url, data.is_phishing ? 'Dangerous' : 'Safe');
 
     } catch (error) {
         showLoading(false);
-        console.error('Error:', error);
-        showError('Failed to scan URL. Make sure your backend is running at: ' + window.API_URL);
+        console.error('❌ Error:', error);
+        showError('Failed to scan URL. Backend may be waking up (~30 seconds on first request).');
     }
 }
 
-// Handle Enter key press
 function handleKeyPress(event) {
     if (event.key === 'Enter') {
         scanUrl();
@@ -169,44 +164,43 @@ function displayResult(data, url) {
         resultIcon = '🛡️';
     }
 
-    // Build details HTML
     if (data.details) {
         detailsHtml = `
-            <div style="margin-top: 1.5rem; text-align: left; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; font-size: 0.95rem;">
-                <p><strong>Analysis Details:</strong></p>
+            <div style="margin-top: 1.5rem; text-align: left; background: rgba(0,0,0,0.3); padding: 1.25rem; border-radius: 12px; font-size: 0.95rem;">
+                <p style="font-weight: 700; margin-bottom: 0.75rem;">📊 Analysis Details:</p>
         `;
         
         if (data.details.confidence) {
-            detailsHtml += `<p>• Confidence Score: ${Math.round(data.details.confidence * 100)}%</p>`;
+            detailsHtml += `<p style="margin-bottom: 0.5rem;">• Confidence Score: ${Math.round(data.details.confidence * 100)}%</p>`;
         }
         
         if (data.details.risk_factors && data.details.risk_factors.length > 0) {
-            detailsHtml += `<p>• Risk Factors: ${data.details.risk_factors.join(', ')}</p>`;
+            detailsHtml += `<p style="margin-bottom: 0.5rem;">• Risk Factors: ${data.details.risk_factors.join(', ')}</p>`;
         }
         
-        if (data.details.domain) {
-            detailsHtml += `<p>• Domain: ${data.details.domain}</p>`;
+        if (data.status) {
+            detailsHtml += `<p style="margin-bottom: 0.5rem;">• Status: ${data.status}</p>`;
         }
         
         detailsHtml += '</div>';
     }
 
     resultContent.innerHTML = `
-        <div style="font-size: 3rem; margin-bottom: 1rem;">${resultIcon}</div>
-        <h3 style="font-size: 1.5rem; margin-bottom: 0.75rem;">${resultTitle}</h3>
-        <p style="font-size: 1.1rem; margin-bottom: 1rem;">${resultMessage}</p>
-        <p style="font-size: 0.95rem; word-break: break-all; opacity: 0.9;">
-            <strong>Scanned URL:</strong> ${url}
-        </p>
+        <div style="font-size: 4rem; margin-bottom: 1.25rem;">${resultIcon}</div>
+        <h3 style="font-size: 1.6rem; margin-bottom: 1rem; font-weight: 800;">${resultTitle}</h3>
+        <p style="font-size: 1.15rem; margin-bottom: 1.5rem; line-height: 1.6;">${resultMessage}</p>
+        <div style="font-size: 0.9rem; word-break: break-all; opacity: 0.9; background: rgba(0,0,0,0.3); padding: 1.15rem; border-radius: 12px; font-family: 'Courier New', monospace;">
+            <strong>🔗 Scanned URL:</strong><br>
+            <span style="color: var(--primary-light);">${url}</span>
+        </div>
         ${detailsHtml}
     `;
 
-    resultContent.className = `${resultClass}`;
+    resultContent.className = `result-content ${resultClass}`;
     resultBox.classList.remove('hidden');
     resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// Show/Hide Loading
 function showLoading(show) {
     const loading = document.getElementById('loading');
     if (show) {
@@ -216,27 +210,24 @@ function showLoading(show) {
     }
 }
 
-// Hide Result
 function hideResult() {
     document.getElementById('result-box').classList.add('hidden');
 }
 
-// Show Error
 function showError(message) {
     const resultBox = document.getElementById('result-box');
     const resultContent = document.getElementById('result');
     
     resultContent.innerHTML = `
-        <div style="font-size: 3rem; margin-bottom: 1rem;">❌</div>
-        <h3 style="font-size: 1.5rem; margin-bottom: 0.75rem; color: #ef4444;">ERROR</h3>
-        <p style="font-size: 1.1rem;">${message}</p>
+        <div style="font-size: 4rem; margin-bottom: 1.25rem;">❌</div>
+        <h3 style="font-size: 1.6rem; margin-bottom: 1rem; color: #ef4444; font-weight: 800;">ERROR</h3>
+        <p style="font-size: 1.15rem; line-height: 1.6;">${message}</p>
     `;
     
-    resultContent.className = 'result-dangerous';
+    resultContent.className = 'result-content result-dangerous';
     resultBox.classList.remove('hidden');
 }
 
-// Smooth scrolling for navigation links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();
@@ -253,12 +244,13 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 // Health check on page load
 window.addEventListener('load', async () => {
     try {
+        console.log('🔍 Checking backend health...');
         const response = await fetch(`${window.API_URL}/api/health`);
         if (response.ok) {
             const data = await response.json();
-            console.log('✅ Backend is connected and running');
+            console.log('✅ Backend is connected and running!', data);
         }
     } catch (error) {
-        console.warn('⚠️ Backend might be offline. Using API URL:', window.API_URL);
+        console.warn('⚠️ Backend might be offline or waking up. API URL:', window.API_URL);
     }
 });
