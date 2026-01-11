@@ -161,7 +161,7 @@ body.light-mode .nav-link {
     align-items: center;
     justify-content: center;
     text-align: center;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .hero-background {
@@ -180,6 +180,7 @@ body.light-mode .nav-link {
     z-index: 1;
     max-width: 900px;
     padding: 0 2rem;
+    overflow: visible;
 }
 
 .hero-title {
@@ -190,8 +191,9 @@ body.light-mode .nav-link {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     letter-spacing: -3px;
-    line-height: 1;
+    line-height: 1.2;
     animation: fadeInDown 1s ease;
+    overflow: visible;
 }
 
 body.light-mode .hero-title {
@@ -536,7 +538,7 @@ body.light-mode .url-input::placeholder {
 .flag-item {
     position: relative;
     padding-left: 6rem;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .flag-number {
