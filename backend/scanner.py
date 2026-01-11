@@ -12,27 +12,21 @@ logger = logging.getLogger(__name__)
 
 class URLPhishingScanner:
     def __init__(self):
+        # ONLY ABSOLUTELY TRUSTED DOMAINS
         self.trusted_domains = {
-            "google.com", "microsoft.com", "apple.com", "facebook.com",
-            "amazon.com", "github.com", "stackoverflow.com", "wikipedia.org",
-            "youtube.com", "twitter.com", "linkedin.com", "reddit.com",
-            "slack.com", "discord.com", "telegram.org", "gmail.com"
+            "google.com", "microsoft.com", "apple.com", "amazon.com",
+            "github.com", "stackoverflow.com", "wikipedia.org",
+            "facebook.com", "youtube.com", "twitter.com"
         }
 
-        # HIGHLY SUSPICIOUS - FREE HOSTING
+        # 🚨 CRITICAL: FREE HOSTING = AUTOMATIC HIGH RISK
         self.free_hosting = {
             "ucoz.ua", "ucoz.ru", "ucoz.kz", "ucoz.com",
             "000webhostapp.com", "weebly.com", "wix.com", "wixsite.com",
             "blogspot.com", "wordpress.com", "tumblr.com",
             "infinityfree.net", "byet.org", "byethost.com", "epizy.com",
             "atspace.cc", "x10hosting.com", "freehostia.com", "phpnet.us",
-            "awardspace.com", "110mb.com", "5gbfree.com"
-        }
-
-        # DEV HOSTING (suspicious if used for brand sites)
-        self.dev_hosting = {
-            "vercel.app", "netlify.app", "github.io", "heroku.com",
-            "glitch.me", "replit.dev", "onrender.com", "herokuapp.com"
+            "awardspace.com", "110mb.com", "5gbfree.com", "000webhost.com"
         }
 
         # SUSPICIOUS TLDS
@@ -41,15 +35,14 @@ class URLPhishingScanner:
             ".gq", ".download", ".review", ".bid", ".webcam", ".science"
         }
 
-        # BRAND KEYWORDS
-        self.brand_keywords = {
-            "verify", "confirm", "authenticate", "validate", "authorize",
-            "update", "urgent", "security", "secure", "account", "login",
-            "signin", "password", "credential", "unlock", "locked",
-            "suspended", "restricted", "action", "required", "immediately",
-            "microsoft", "office", "outlook", "google", "gmail", "amazon",
-            "apple", "facebook", "paypal", "bank", "ebay", "steam",
-            "discord", "telegram", "whatsapp", "onedrive", "dropbox"
+        # PHISHING KEYWORDS - VERY AGGRESSIVE
+        self.phishing_keywords = {
+            "verify", "confirm", "authenticate", "validate",
+            "update", "urgent", "action", "required", "immediately",
+            "account", "login", "signin", "password", "credential",
+            "unlock", "locked", "suspended", "restricted", "expire",
+            "microsoft", "office", "outlook", "google", "gmail",
+            "amazon", "apple", "facebook", "paypal", "ebay", "bank"
         }
 
         self.urlhaus_api = "https://urlhaus-api.abuse.ch/v1/url/"
@@ -78,7 +71,7 @@ class URLPhishingScanner:
         return bool(re.match(r"^\d{1,3}(\.\d{1,3}){3}(:\d+)?$", domain))
 
     def analyze_url_structure(self, url):
-        """Aggressive heuristic analysis"""
+        """AGGRESSIVE PHISHING DETECTION"""
         score = 0.0
         risks = []
 
@@ -89,130 +82,111 @@ class URLPhishingScanner:
             query = (p.query or "").lower()
             full_url = url.lower()
 
-            # 1. @ SYMBOL (CRITICAL)
+            # 🔴 CRITICAL: @ SYMBOL
             if "@" in full_url:
-                score += 0.35
-                risks.append("🔴 Contains '@' symbol - domain spoofing attack detected")
-
-            # 2. IP ADDRESS (CRITICAL)
-            if self._is_ip(domain):
                 score += 0.40
-                risks.append("🔴 Uses IP address instead of domain - major red flag")
+                risks.append("🔴 CRITICAL: URL contains '@' - domain spoofing detected")
 
-            # 3. FREE HOSTING DETECTION (VERY HIGH RISK)
+            # 🔴 CRITICAL: IP ADDRESS
+            if self._is_ip(domain):
+                score += 0.45
+                risks.append("🔴 CRITICAL: Uses IP address instead of domain")
+
+            # 🔴 CRITICAL: FREE HOSTING DOMAIN
             for free_domain in self.free_hosting:
                 if domain == free_domain or domain.endswith("." + free_domain):
-                    score += 0.50
-                    risks.append(f"🔴 Free hosting domain detected: {free_domain} - commonly used for phishing")
-
-                    # Check for brand impersonation on free hosting
-                    for brand in ["microsoft", "apple", "google", "amazon", "paypal", "office"]:
-                        if brand in domain or brand in path:
-                            score += 0.30
-                            risks.append(f"🔴 CRITICAL: Brand '{brand}' impersonation on free hosting")
-                    break
-
-            # 4. DEV HOSTING WITH BRAND NAMES
-            for dev_domain in self.dev_hosting:
-                if domain == dev_domain or domain.endswith("." + dev_domain):
-                    # If brand names present, it's suspicious
-                    for brand in ["microsoft", "google", "apple", "amazon", "paypal", "office"]:
+                    score += 0.55  # MASSIVE SCORE
+                    risks.append(f"🔴 CRITICAL: Free hosting domain '{free_domain}' - phishing indicator")
+                    
+                    # DOUBLE CHECK: if brand names present, EVEN WORSE
+                    for brand in ["microsoft", "apple", "google", "amazon", "paypal", "office", "bank", "login", "verify"]:
                         if brand in domain or brand in path:
                             score += 0.25
-                            risks.append(f"⚠️  Dev hosting + brand name: {brand} - possible impersonation")
+                            risks.append(f"🔴 CRITICAL: Brand/credential keyword '{brand}' on free hosting")
                     break
 
-            # 5. SUSPICIOUS TLDS
+            # 🟡 SUSPICIOUS TLD
             for tld in self.suspicious_tlds:
                 if domain.lower().endswith(tld):
-                    score += 0.20
-                    risks.append(f"⚠️  Suspicious TLD detected: {tld}")
+                    score += 0.25
+                    risks.append(f"🟡 Suspicious TLD detected: {tld}")
                     break
 
-            # 6. TOO MANY SUBDOMAINS
+            # 🟡 TOO MANY SUBDOMAINS
             if domain.count(".") > 3:
-                score += 0.18
-                risks.append("⚠️  Suspicious subdomain chain (deep nesting)")
+                score += 0.20
+                risks.append("🟡 Suspicious subdomain chain detected")
 
-            # 7. BRAND KEYWORDS IN URL
+            # 🔴 PHISHING KEYWORDS (AGGRESSIVE)
             keyword_matches = []
-            for keyword in self.brand_keywords:
-                if re.search(r"\b" + keyword + r"\b", full_url.replace("-", " ").replace("_", " ")):
+            for keyword in self.phishing_keywords:
+                if re.search(r"\b" + re.escape(keyword) + r"\b", full_url.replace("-", " ").replace("_", " ")):
                     keyword_matches.append(keyword)
 
-            if len(keyword_matches) >= 3:
-                score += 0.30
-                risks.append(f"🔴 Multiple phishing keywords: {', '.join(keyword_matches[:5])}")
+            if len(keyword_matches) >= 4:
+                score += 0.40
+                risks.append(f"🔴 CRITICAL: Multiple phishing keywords: {', '.join(keyword_matches[:5])}")
             elif len(keyword_matches) >= 2:
-                score += 0.20
-                risks.append(f"⚠️  Phishing keywords detected: {', '.join(keyword_matches)}")
-            elif len(keyword_matches) == 1:
-                score += 0.10
-                risks.append(f"ℹ️  Phishing keyword found: {keyword_matches[0]}")
-
-            # 8. LONG URL (OBFUSCATION)
-            if len(url) > 150:
-                score += 0.15
-                risks.append(f"⚠️  Unusually long URL ({len(url)} chars) - possible obfuscation")
-
-            # 9. QUERY PARAMETERS WITH CREDENTIALS
-            if re.search(r"(email=|user=|username=|pass=|password=|token=|session=|auth=)", query):
-                score += 0.30
-                risks.append("🔴 Query contains credential-like parameters")
-
-            # 10. SUSPICIOUS FILE EXTENSIONS
-            if re.search(r"\.(htm|html|php|aspx|jsp|asp)(\?|#|$)", path):
-                score += 0.12
-                risks.append("⚠️  Webpage file in path (common in phishing kits)")
-
-            # 11. ENCODED/UNICODE CHARACTERS
-            if "%2f" in url or "%3a" in url or "xn--" in domain:
-                score += 0.18
-                risks.append("⚠️  URL contains encoded characters (obfuscation)")
-
-            # 12. DOUBLE DOTS / UNUSUAL PATTERNS
-            if ".." in domain or domain.count("-") > 5:
-                score += 0.15
-                risks.append("⚠️  Unusual domain pattern (too many hyphens/dots)")
-
-            # 13. NO HTTPS
-            if not url.startswith("https://"):
-                score += 0.15
-                risks.append("⚠️  Not using HTTPS encryption")
-
-            # 14. SUSPICIOUS DOMAIN PATTERNS
-            if re.search(r"(login|signin|verify|confirm|authenticate|update)-", domain):
                 score += 0.25
-                risks.append("🔴 Suspicious domain pattern (e.g., verify-account, login-here)")
+                risks.append(f"🟡 Phishing keywords detected: {', '.join(keyword_matches[:3])}")
+            elif len(keyword_matches) == 1:
+                score += 0.12
+                risks.append(f"ℹ️ Keyword detected: {keyword_matches[0]}")
 
-            # 15. PORT NUMBERS
-            if ":" in domain:
-                port = domain.split(":")[-1]
-                if not port in ["80", "443"]:
-                    score += 0.12
-                    risks.append(f"⚠️  Non-standard port detected: {port}")
+            # 🔴 LONG URL (OBFUSCATION)
+            if len(url) > 150:
+                score += 0.18
+                risks.append(f"🟡 Unusually long URL ({len(url)} chars)")
+
+            # 🔴 QUERY CREDENTIALS
+            if re.search(r"(email=|user=|username=|pass=|password=|token=|session=)", query):
+                score += 0.35
+                risks.append("🔴 CRITICAL: Query contains credential parameters")
+
+            # 🟡 FILE EXTENSIONS
+            if re.search(r"\.(htm|html|php|aspx|jsp)(\?|#|$)", path):
+                score += 0.15
+                risks.append("🟡 Webpage file in path (phishing kit indicator)")
+
+            # 🟡 ENCODED CHARACTERS
+            if "%2f" in url or "%3a" in url or "xn--" in domain:
+                score += 0.20
+                risks.append("🟡 URL contains encoded characters")
+
+            # 🟡 NO HTTPS
+            if not url.startswith("https://"):
+                score += 0.18
+                risks.append("🟡 Not using HTTPS encryption")
+
+            # 🟡 SUSPICIOUS DOMAIN PATTERNS
+            if re.search(r"(login|signin|verify|confirm|authenticate|update|urgent)-", domain):
+                score += 0.22
+                risks.append("🟡 Suspicious domain pattern detected")
+
+            # 🟡 EXCESS HYPHENS
+            if domain.count("-") > 5:
+                score += 0.15
+                risks.append("🟡 Excessive hyphens in domain")
 
             return min(score, 0.99), risks
 
         except Exception as e:
-            logger.error(f"Heuristic analysis error: {e}")
-            return 0.2, ["Analysis error"]
+            logger.error(f"Analysis error: {e}")
+            return 0.3, ["Error during analysis"]
 
     def check_urlhaus(self, url):
-        """Check URLhaus database"""
         try:
             resp = requests.post(self.urlhaus_api, data={"url": url}, timeout=8)
             if resp.status_code == 200:
                 data = resp.json()
-                if data.get("query_status") == "ok" and data.get("url_status") in ["online", "offline"]:
-                    return 0.95, "🔴 FLAGGED: URLhaus malicious URL database"
+                if data.get("query_status") == "ok" and data.get("url_status"):
+                    return 0.95, "🔴 Flagged in URLhaus malicious database"
             return 0.0, None
         except Exception as e:
-            logger.warning(f"URLhaus failed: {e}")
+            logger.warning(f"URLhaus check failed: {e}")
             return 0.0, None
 
     def check_google_safe_browsing(self, url):
-        """Check Google Safe Browsing"""
         if not self.gsb_api_key:
             return 0.0, None
 
@@ -231,70 +205,62 @@ class URLPhishingScanner:
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("matches"):
-                    threat_type = data["matches"][0].get("threatType", "UNKNOWN")
-                    return 0.90, f"🔴 FLAGGED: Google Safe Browsing ({threat_type})"
+                    threat = data["matches"][0].get("threatType", "UNKNOWN")
+                    return 0.92, f"🔴 Google Safe Browsing flagged: {threat}"
             return 0.0, None
         except Exception as e:
-            logger.warning(f"GSB failed: {e}")
+            logger.warning(f"GSB check failed: {e}")
             return 0.0, None
 
     def check_virustotal(self, url):
-        """Check VirusTotal"""
         if not self.vt_api_key:
             return 0.0, None
 
         try:
             headers = {"x-apikey": self.vt_api_key}
-            # Submit URL
-            resp1 = requests.post(
+            resp = requests.post(
                 "https://www.virustotal.com/api/v3/urls",
                 headers=headers,
                 data=f"url={url}",
                 timeout=10
             )
-            if resp1.status_code not in [200, 201]:
+            if resp.status_code not in [200, 201]:
                 return 0.0, None
 
-            # Get analysis
             import base64
             url_id = base64.urlsafe_b64encode(url.encode()).decode().strip("=")
-            resp2 = requests.get(
+            detail = requests.get(
                 f"https://www.virustotal.com/api/v3/urls/{url_id}",
                 headers=headers,
                 timeout=10
             )
-            if resp2.status_code != 200:
+            if detail.status_code != 200:
                 return 0.0, None
 
-            data = resp2.json()
+            data = detail.json()
             stats = ((data.get("data") or {}).get("attributes") or {}).get("last_analysis_stats") or {}
             malicious = int(stats.get("malicious") or 0)
-            suspicious = int(stats.get("suspicious") or 0)
 
             if malicious >= 5:
-                return 0.95, f"🔴 FLAGGED: VirusTotal - {malicious} vendors detected as malicious"
-            elif malicious >= 2:
-                return 0.80, f"⚠️  VirusTotal - {malicious} vendors flagged as suspicious"
-            elif suspicious >= 5:
-                return 0.70, f"⚠️  VirusTotal - {suspicious} vendors flagged as suspicious"
-
+                return 0.88, f"🔴 VirusTotal: {malicious} vendors flagged as malicious"
             return 0.0, None
+
         except Exception as e:
-            logger.warning(f"VirusTotal failed: {e}")
+            logger.warning(f"VirusTotal check failed: {e}")
             return 0.0, None
 
     def scan(self, url):
-        """Main scanning function"""
+        """MAIN SCANNING ENGINE"""
         if not url or not url.strip():
             return {
                 "url": url,
+                "domain": "",
                 "confidence_score": 0.0,
                 "threat_level": "SAFE",
                 "risk_factors": ["Empty URL"],
                 "timestamp": datetime.utcnow().isoformat()
             }
 
-        # Normalize URL
         if not url.startswith(("http://", "https://")):
             url = "https://" + url
 
@@ -310,21 +276,21 @@ class URLPhishingScanner:
             "timestamp": datetime.utcnow().isoformat()
         }
 
-        # Quick trusted check
+        # TRUSTED QUICK EXIT
         if self._is_trusted(domain):
-            result["confidence_score"] = 0.02
-            result["threat_level"] = "SAFE"
+            result["confidence_score"] = 0.01
+            result["threat_level"] = "✅ SAFE"
             result["risk_factors"] = ["✅ Trusted domain"]
             return result
 
-        # LOCAL HEURISTICS (55% weight)
+        # LOCAL HEURISTICS (60% weight - AGGRESSIVE)
         local_score, local_risks = self.analyze_url_structure(url)
         result["sources"]["local_heuristics"] = {
             "score": round(local_score, 2),
             "risks": local_risks
         }
 
-        # URLHAUS (25% weight)
+        # URLHAUS (20% weight)
         urlhaus_score, urlhaus_msg = self.check_urlhaus(url)
         result["sources"]["urlhaus"] = {
             "score": round(urlhaus_score, 2),
@@ -333,7 +299,7 @@ class URLPhishingScanner:
         if urlhaus_msg:
             result["risk_factors"].append(urlhaus_msg)
 
-        # GOOGLE SAFE BROWSING (15% weight)
+        # GSB (12% weight)
         gsb_score, gsb_msg = self.check_google_safe_browsing(url)
         result["sources"]["gsb"] = {
             "score": round(gsb_score, 2),
@@ -342,7 +308,7 @@ class URLPhishingScanner:
         if gsb_msg:
             result["risk_factors"].append(gsb_msg)
 
-        # VIRUSTOTAL (5% weight)
+        # VT (8% weight)
         vt_score, vt_msg = self.check_virustotal(url)
         result["sources"]["vt"] = {
             "score": round(vt_score, 2),
@@ -351,24 +317,24 @@ class URLPhishingScanner:
         if vt_msg:
             result["risk_factors"].append(vt_msg)
 
-        # Add local risks
+        # ADD LOCAL RISKS
         result["risk_factors"].extend(local_risks)
-        result["risk_factors"] = list(set(result["risk_factors"]))  # Deduplicate
+        result["risk_factors"] = list(set(result["risk_factors"]))
 
         # WEIGHTED FINAL SCORE
         final_score = (
-            local_score * 0.55 +
-            urlhaus_score * 0.25 +
-            gsb_score * 0.15 +
-            vt_score * 0.05
+            local_score * 0.60 +
+            urlhaus_score * 0.20 +
+            gsb_score * 0.12 +
+            vt_score * 0.08
         )
         final_score = min(final_score, 0.99)
         result["confidence_score"] = round(final_score, 2)
 
-        # Threat level
-        if result["confidence_score"] >= 0.85:
+        # THREAT LEVELS
+        if result["confidence_score"] >= 0.80:
             result["threat_level"] = "🔴 DANGEROUS"
-        elif result["confidence_score"] >= 0.70:
+        elif result["confidence_score"] >= 0.65:
             result["threat_level"] = "🟡 SUSPICIOUS"
         elif result["confidence_score"] >= 0.50:
             result["threat_level"] = "🟠 BORDERLINE"
@@ -376,12 +342,11 @@ class URLPhishingScanner:
             result["threat_level"] = "✅ SAFE"
 
         if not result["risk_factors"]:
-            result["risk_factors"] = ["No significant threats detected"]
+            result["risk_factors"] = ["✅ No significant phishing indicators detected"]
 
         return result
 
 
-# Singleton
 scanner = URLPhishingScanner()
 
 def scan_url(url):
