@@ -1,394 +1,317 @@
 import requests
-import re
 from urllib.parse import urlparse
-from typing import Dict, List, Tuple
-import os
+import re
 from datetime import datetime
+import logging
 
-# ============ PHISHING DETECTION KEYWORDS & PATTERNS ============
-PHISHING_KEYWORDS = [
-    "login", "verify", "secure", "bank", "account", "update", "password", 
-    "confirm", "confirm-identity", "validate", "authenticate", "signin",
-    "paypal", "amazon", "apple", "google", "microsoft", "steam",
-    "blockchain", "crypto", "confirm-transaction", "verify-account"
-]
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-SUSPICIOUS_PATTERNS = [
-    r"^https?://.*@.*",  # URL with @ symbol
-    r"https?://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",  # IP address as domain
-    r"https?://.*\..*\..*\..*\..{2,}/",  # Multiple subdomains
-    r"https?://localhost",
-    r"https?://127\.0\.0\.1",
-]
-
-LEGITIMATE_TLDS = [
-    "com", "org", "net", "edu", "gov", "io", "co", "us", "uk", "de",
-    "fr", "jp", "cn", "in", "au", "ca", "br", "ru", "it", "es"
-]
-
-LEGITIMATE_DOMAINS = [
-    "google.com", "facebook.com", "amazon.com", "microsoft.com", "apple.com",
-    "github.com", "linkedin.com", "twitter.com", "youtube.com", "reddit.com",
-    "wikipedia.org", "stackoverflow.com", "medium.com", "dev.to", "github.io"
-]
-
-# ============ VIRUSTOTAL API ============
-def check_virustotal(url: str) -> Dict:
-    """
-    Check URL against VirusTotal database
-    Free API: 4 requests/minute
-    """
-    try:
-        api_key = os.getenv("VIRUSTOTAL_API_KEY")
-        if not api_key:
-            return {"success": False, "reason": "API key not configured", "malicious": 0, "suspicious": 0, "confidence": 0}
+class URLPhishingScanner:
+    def __init__(self):
+        # Known safe domains
+        self.safe_domains = {
+            'google.com', 'facebook.com', 'amazon.com', 'github.com', 'stackoverflow.com',
+            'wikipedia.org', 'youtube.com', 'twitter.com', 'linkedin.com', 'microsoft.com',
+            'apple.com', 'cloudflare.com', 'vercel.app', 'render.com', 'heroku.com',
+            'reddit.com', 'slack.com', 'discord.com', 'telegram.org', 'gmail.com'
+        }
         
-        headers = {"x-apikey": api_key}
-        # URL encode the URL
-        files = {"url": (None, url)}
-        response = requests.post(
-            "https://www.virustotal.com/api/v3/urls",
-            headers=headers,
-            files=files,
-            timeout=10
-        )
+        # HIGHLY SUSPICIOUS FREE HOSTING DOMAINS
+        self.free_hosting_domains = {
+            'ucoz.ua', 'ucoz.ru', 'ucoz.kz', 'ucoz.com',  # UCoz
+            '000webhostapp.com', 'weebly.com', 'wix.com',   # Free website builders (often misused)
+            'blogspot.com', 'wordpress.com', 'pages.github.io',  # Blog platforms
+            'netlify.app', 'vercel.app', 'heroku.com',      # Dev hosting (sometimes misused)
+            'repl.it', 'glitch.me', 'onrender.com',
+            'free-hosting.com', 'x10hosting.com', 'infinityfree.net',
+            'byethost.com', 'hostinger.com', 'byet.org',
+            'epizy.com', 'atspace.cc', 'freehostia.com'
+        }
         
-        if response.status_code == 200:
-            data = response.json()
-            url_id = data.get("data", {}).get("id")
+        # Phishing keywords
+        self.phishing_keywords = {
+            'verify', 'confirm', 'authenticate', 'validate', 'authorize',
+            'update', 'urgent', 'action', 'immediately', 'required',
+            'account', 'login', 'signin', 'password', 'credential',
+            'bank', 'paypal', 'apple', 'microsoft', 'google', 'amazon',
+            'confirmation', 'suspended', 'locked', 'restricted', 'expire',
+            'unusual', 'suspicious', 'activity', 'unusual activity',
+            'click here', 'confirm identity', 'verify account'
+        }
+        
+        # URLhaus API (no key needed)
+        self.urlhaus_api = "https://urlhaus-api.abuse.ch/v1/url/"
+        
+        # Google Safe Browsing API (if key available)
+        self.gsb_api_key = None
+        try:
+            import os
+            self.gsb_api_key = os.getenv('GOOGLE_SAFE_BROWSING_API_KEY')
+        except:
+            pass
+        
+        # VirusTotal API (if key available)
+        self.vt_api_key = None
+        try:
+            import os
+            self.vt_api_key = os.getenv('VIRUSTOTAL_API_KEY')
+        except:
+            pass
+
+    def analyze_url_structure(self, url):
+        """Analyze URL structure for phishing indicators"""
+        score = 0
+        risks = []
+        
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower()
+            path = parsed.path.lower()
+            full_url = url.lower()
             
-            if url_id:
-                # Get analysis results
-                analysis_response = requests.get(
-                    f"https://www.virustotal.com/api/v3/urls/{url_id}",
-                    headers=headers,
-                    timeout=10
-                )
-                
-                if analysis_response.status_code == 200:
-                    analysis = analysis_response.json()
-                    stats = analysis.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
-                    malicious = stats.get("malicious", 0)
-                    suspicious = stats.get("suspicious", 0)
-                    
-                    # Confidence: based on number of vendors flagging
-                    total_vendors = stats.get("undetected", 0) + malicious + suspicious
-                    confidence = (malicious + suspicious) / max(total_vendors, 1) if total_vendors > 0 else 0
-                    
-                    return {
-                        "success": True,
-                        "malicious": malicious,
-                        "suspicious": suspicious,
-                        "confidence": min(confidence, 1.0)
-                    }
-        
-        return {"success": False, "reason": "API call failed", "malicious": 0, "suspicious": 0, "confidence": 0}
-    except Exception as e:
-        return {"success": False, "reason": str(e), "malicious": 0, "suspicious": 0, "confidence": 0}
-
-# ============ URLHAUS API ============
-def check_urlhaus(url: str) -> Dict:
-    """
-    Check URL against URLhaus (abuse.ch) database
-    Free API, no authentication required
-    """
-    try:
-        response = requests.post(
-            "https://urlhaus-api.abuse.ch/v1/url/",
-            data={"url": url},
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            query_status = data.get("query_status")
+            # 1. CHECK FOR @ SYMBOL (domain spoofing)
+            if '@' in url:
+                score += 0.25
+                risks.append("Contains @ symbol - possible domain spoofing")
             
-            if query_status == "ok":
-                # URL found in database
-                threat = data.get("threat", "")
-                blacklisted = data.get("blacklists", {}).get("spamhaus_dbl", "not listed") != "not listed"
-                
-                confidence = 0.95 if blacklisted or "phishing" in threat.lower() else 0.7
-                return {
-                    "success": True,
-                    "is_malicious": True,
-                    "threat_type": threat,
-                    "confidence": confidence
+            # 2. CHECK FOR IP ADDRESS INSTEAD OF DOMAIN
+            if re.match(r'^(\d{1,3}\.){3}\d{1,3}', domain):
+                score += 0.30
+                risks.append("URL uses IP address instead of domain name")
+            
+            # 3. CHECK FOR SUSPICIOUS SUBDOMAINS (many dots)
+            if domain.count('.') > 3:
+                score += 0.20
+                risks.append("Suspicious number of subdomains")
+            
+            # 4. CHECK TLD SUSPICION
+            if domain.endswith(('.tk', '.ml', '.ga', '.cf', '.xyz', '.top', '.pw', '.link', '.gq')):
+                score += 0.15
+                risks.append("Uncommon/free TLD detected")
+            
+            # 5. CHECK FOR FREE HOSTING DOMAINS
+            for free_domain in self.free_hosting_domains:
+                if free_domain in domain:
+                    score += 0.35  # VERY SUSPICIOUS
+                    risks.append(f"Free hosting domain detected: {free_domain}")
+                    
+                    # EXTRA CHECK: if it contains brand names in path
+                    for brand in ['microsoft', 'apple', 'google', 'amazon', 'facebook', 'paypal']:
+                        if brand in path or brand in domain:
+                            score += 0.20  # DOUBLE RED FLAG
+                            risks.append(f"Brand name '{brand}' in free hosting URL - likely phishing")
+                    break
+            
+            # 6. CHECK FOR URL LENGTH > 100 chars (obfuscation)
+            if len(url) > 100:
+                score += 0.10
+                risks.append("URL is unusually long (>100 chars)")
+            
+            # 7. CHECK FOR PHISHING KEYWORDS IN FULL URL
+            keyword_count = 0
+            for keyword in self.phishing_keywords:
+                if keyword in full_url.replace('-', ' ').replace('_', ' '):
+                    keyword_count += 1
+            
+            if keyword_count >= 2:
+                score += 0.20
+                risks.append(f"Multiple phishing keywords detected ({keyword_count})")
+            elif keyword_count == 1:
+                score += 0.10
+                risks.append(f"Phishing keyword detected")
+            
+            # 8. CHECK FOR PORT NUMBERS (unusual ports)
+            if ':' in domain and not domain.endswith(':80') and not domain.endswith(':443'):
+                score += 0.15
+                risks.append("Unusual port number detected")
+            
+            # 9. CHECK FOR ENCODED CHARACTERS OR OBFUSCATION
+            if '%' in url or 'xn--' in domain:  # punycode
+                score += 0.15
+                risks.append("URL contains encoded/unicode characters")
+            
+            # 10. CHECK FOR BRAND IMPERSONATION (major brands on suspicious domains)
+            major_brands = ['microsoft', 'apple', 'google', 'amazon', 'facebook', 'paypal', 'bank', 'ebay']
+            for brand in major_brands:
+                if brand in domain or brand in path:
+                    # If on free hosting or unknown domain, HIGH RISK
+                    if domain not in self.safe_domains:
+                        score += 0.25
+                        risks.append(f"Possible brand impersonation: {brand}")
+            
+            # 11. CHECK FOR HTTPS (legitimate sites use it)
+            if not url.startswith('https://'):
+                score += 0.10
+                risks.append("Not using HTTPS encryption")
+            
+            # 12. CHECK FOR SUSPICIOUS PATTERNS IN DOMAIN
+            # Patterns like google-login, verify-account, etc.
+            if re.search(r'(login|verify|confirm|authenticate|update|urgent|action)-', domain):
+                score += 0.20
+                risks.append("Suspicious domain pattern detected")
+            
+            # 13. CHECK FOR EXCESS HYPHENS (often in phishing URLs)
+            if domain.count('-') > 3:
+                score += 0.12
+                risks.append("Excessive hyphens in domain")
+            
+            return min(score, 0.99), risks
+            
+        except Exception as e:
+            logger.error(f"Error analyzing URL structure: {e}")
+            return 0.5, ["Error analyzing URL"]
+
+    def check_urlhaus(self, url):
+        """Check URLhaus phishing database"""
+        try:
+            response = requests.post(self.urlhaus_api, data={'url': url}, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('query_status') == 'ok' and data.get('results'):
+                    # URL found in URLhaus (it's phishing!)
+                    return 0.85, "Flagged in URLhaus phishing database"
+            return 0, None
+        except Exception as e:
+            logger.error(f"URLhaus check failed: {e}")
+            return 0, None
+
+    def check_google_safe_browsing(self, url):
+        """Check Google Safe Browsing API"""
+        if not self.gsb_api_key:
+            return 0, None
+        
+        try:
+            api_url = f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={self.gsb_api_key}"
+            payload = {
+                "client": {
+                    "clientId": "phishguard",
+                    "clientVersion": "1.0"
+                },
+                "threatInfo": {
+                    "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
+                    "platformTypes": ["ANY_PLATFORM"],
+                    "threatEntryTypes": ["URL"],
+                    "threatEntries": [{"url": url}]
                 }
-            elif query_status == "not_found":
-                return {"success": True, "is_malicious": False, "confidence": 0.05}
-            else:
-                return {"success": False, "reason": "Invalid query", "confidence": 0}
-        
-        return {"success": False, "reason": "API call failed", "confidence": 0}
-    except Exception as e:
-        return {"success": False, "reason": str(e), "confidence": 0}
-
-# ============ GOOGLE SAFE BROWSING API ============
-def check_google_safe_browsing(url: str) -> Dict:
-    """
-    Check URL against Google Safe Browsing API
-    Requires API key from Google Cloud Console
-    """
-    try:
-        api_key = os.getenv("GOOGLE_SAFE_BROWSING_API_KEY")
-        if not api_key:
-            return {"success": False, "reason": "API key not configured", "is_safe": True, "confidence": 0}
-        
-        endpoint = f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}"
-        payload = {
-            "client": {
-                "clientId": "phishing-scanner",
-                "clientVersion": "1.0.0"
-            },
-            "threatInfo": {
-                "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE"],
-                "platformTypes": ["ANY_PLATFORM"],
-                "threatEntryTypes": ["URL"],
-                "threatEntries": [{"url": url}]
             }
-        }
+            response = requests.post(api_url, json=payload, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('matches'):
+                    return 0.80, f"Flagged by Google Safe Browsing: {data['matches'][0]['threatType']}"
+            return 0, None
+        except Exception as e:
+            logger.error(f"Google Safe Browsing check failed: {e}")
+            return 0, None
+
+    def check_virustotal(self, url):
+        """Check VirusTotal for malicious URLs"""
+        if not self.vt_api_key:
+            return 0, None
         
-        response = requests.post(endpoint, json=payload, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            has_threats = bool(data.get("matches"))
+        try:
+            headers = {"x-apikey": self.vt_api_key}
+            params = {"url": url}
+            response = requests.get("https://www.virustotal.com/api/v3/urls", headers=headers, params=params, timeout=5)
             
-            if has_threats:
-                threat_types = [m.get("threatType") for m in data.get("matches", [])]
-                confidence = 0.95 if "SOCIAL_ENGINEERING" in threat_types else 0.85
-                return {
-                    "success": True,
-                    "is_safe": False,
-                    "threat_types": threat_types,
-                    "confidence": confidence
-                }
-            else:
-                return {"success": True, "is_safe": True, "confidence": 0.9}
-        
-        return {"success": False, "reason": "API call failed", "is_safe": True, "confidence": 0}
-    except Exception as e:
-        return {"success": False, "reason": str(e), "is_safe": True, "confidence": 0}
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('data'):
+                    stats = data['data'][0]['attributes']['last_analysis_stats']
+                    malicious = stats.get('malicious', 0)
+                    if malicious > 5:  # More than 5 vendors flagged it
+                        return 0.90, f"Flagged by {malicious} security vendors on VirusTotal"
+            return 0, None
+        except Exception as e:
+            logger.error(f"VirusTotal check failed: {e}")
+            return 0, None
 
-# ============ LOCAL HEURISTIC CHECKS ============
-def check_url_heuristics(url: str) -> Tuple[int, float, List[str]]:
-    """
-    Local heuristic checks without external APIs
-    Returns: (risk_score, confidence, risk_factors)
-    """
-    risk_score = 0
-    confidence = 0.0
-    risk_factors = []
-    
-    try:
-        parsed = urlparse(url)
-        domain = parsed.netloc.lower()
-        path = parsed.path.lower()
-        
-        # Check 0: Legitimate domain whitelist (high safety)
-        if any(domain == ld or domain.endswith("." + ld) for ld in LEGITIMATE_DOMAINS):
-            return 0, 0.95, ["Verified legitimate domain"]
-        
-        # Check 1: Suspicious patterns (high confidence)
-        for pattern in SUSPICIOUS_PATTERNS:
-            if re.search(pattern, url):
-                risk_score += 35
-                confidence += 0.35
-                if "@" in url:
-                    risk_factors.append("URL contains @ symbol (domain spoofing risk)")
-                elif re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", domain):
-                    risk_factors.append("Domain is IP address instead of hostname")
-                elif "localhost" in url or "127.0.0.1" in url:
-                    risk_factors.append("URL is localhost (development/internal)")
-        
-        # Check 2: Phishing keywords (medium-high confidence)
-        keyword_count = sum(1 for keyword in PHISHING_KEYWORDS if keyword in path or keyword in domain)
-        if keyword_count > 0:
-            risk_score += min(20 * keyword_count, 40)
-            confidence += min(0.20 * keyword_count, 0.4)
-            risk_factors.append(f"Contains {keyword_count} phishing-related keyword(s)")
-        
-        # Check 3: Domain reputation (medium confidence)
-        if domain.count(".") > 3:  # Too many subdomains
-            risk_score += 20
-            confidence += 0.2
-            risk_factors.append("Suspicious subdomain structure (too many levels)")
-        
-        # Check 4: HTTPS check (low confidence, but important)
-        if not url.startswith("https://"):
-            risk_score += 10
-            confidence += 0.1
-            risk_factors.append("Not using HTTPS encryption (no SSL/TLS)")
-        
-        # Check 5: Domain age simulation (check for new/suspicious TLDs)
-        tld = domain.split(".")[-1].lower()
-        if tld not in LEGITIMATE_TLDS and len(tld) > 3:
-            risk_score += 15
-            confidence += 0.15
-            risk_factors.append(f"Uncommon TLD detected: .{tld}")
-        
-        # Check 6: URL length (unusually long URLs are suspicious)
-        if len(url) > 120:
-            risk_score += 8
-            confidence += 0.08
-            risk_factors.append(f"Unusually long URL ({len(url)} characters)")
-        
-        # Check 7: Look for homoglyph attacks (similar-looking characters)
-        if "0" in domain and "o" in domain:  # 0 (zero) vs o (letter o)
-            risk_score += 12
-            confidence += 0.12
-            risk_factors.append("Potential homoglyph attack detected")
-        
-        # Check 8: Hyphens in domain (often used in phishing)
-        if domain.count("-") > 2:
-            risk_score += 10
-            confidence += 0.1
-            risk_factors.append("Excessive hyphens in domain (common phishing tactic)")
-        
-        # Normalize scores
-        risk_score = min(risk_score, 100)
-        confidence = min(confidence, 0.75)  # Heuristics alone max 75%
-        
-        return risk_score, confidence, risk_factors
-    
-    except Exception as e:
-        return 0, 0, [f"Heuristic check error: {str(e)}"]
-
-# ============ MAIN SCANNING FUNCTION ============
-def scan_url(url: str) -> Dict:
-    """
-    Comprehensive URL scanning using multiple APIs and heuristics
-    Returns combined results with weighted confidence scoring
-    """
-    
-    # Validate URL
-    if not url or not isinstance(url, str):
-        return {
+    def scan(self, url):
+        """Main scanning function with weighted scores"""
+        results = {
             "url": url,
-            "status": "Invalid",
-            "is_phishing": False,
-            "confidence": 0.0,
-            "risk_factors": ["Invalid or empty URL"],
-            "scan_results": []
+            "timestamp": datetime.now().isoformat(),
+            "confidence_score": 0.0,
+            "threat_level": "SAFE",
+            "risk_factors": [],
+            "sources": {}
         }
-    
-    # Ensure URL has protocol
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
-    
-    results = []
-    threat_indicators = 0
-    total_confidence = 0.0
-    all_risk_factors = []
-    
-    # ========== API Checks ==========
-    
-    # 1. Local Heuristics (always run, fast)
-    heuristic_score, heuristic_confidence, heuristic_factors = check_url_heuristics(url)
-    results.append({
-        "source": "Local Heuristics",
-        "is_threat": heuristic_score > 50,
-        "confidence": heuristic_confidence,
-        "details": f"Risk score: {heuristic_score}/100"
-    })
-    total_confidence += heuristic_confidence * 0.25  # 25% weight (increased)
-    if heuristic_score > 50:
-        threat_indicators += 1
-    all_risk_factors.extend(heuristic_factors)
-    
-    # 2. URLhaus (fast, reliable, free)
-    urlhaus_result = check_urlhaus(url)
-    if urlhaus_result.get("success"):
-        is_malicious = urlhaus_result.get("is_malicious", False)
-        urlhaus_confidence = urlhaus_result.get("confidence", 0)
-        results.append({
-            "source": "URLhaus (abuse.ch)",
-            "is_threat": is_malicious,
-            "confidence": urlhaus_confidence,
-            "details": urlhaus_result.get("threat_type", "")
-        })
-        total_confidence += urlhaus_confidence * 0.30  # 30% weight
-        if is_malicious:
-            threat_indicators += 1
-            all_risk_factors.append("Flagged by URLhaus abuse database")
-    
-    # 3. Google Safe Browsing (if API key available)
-    if os.getenv("GOOGLE_SAFE_BROWSING_API_KEY"):
-        gsb_result = check_google_safe_browsing(url)
-        if gsb_result.get("success"):
-            is_threat = not gsb_result.get("is_safe", True)
-            gsb_confidence = gsb_result.get("confidence", 0)
-            results.append({
-                "source": "Google Safe Browsing",
-                "is_threat": is_threat,
-                "confidence": gsb_confidence,
-                "details": ", ".join(gsb_result.get("threat_types", []))
-            })
-            total_confidence += gsb_confidence * 0.20  # 20% weight
-            if is_threat:
-                threat_indicators += 1
-                all_risk_factors.append("Flagged by Google Safe Browsing")
-    
-    # 4. VirusTotal (if API key available)
-    if os.getenv("VIRUSTOTAL_API_KEY"):
-        vt_result = check_virustotal(url)
-        if vt_result.get("success"):
-            malicious_count = vt_result.get("malicious", 0)
-            suspicious_count = vt_result.get("suspicious", 0)
-            vt_confidence = vt_result.get("confidence", 0)
-            
-            is_threat = malicious_count > 0 or suspicious_count > 3
-            results.append({
-                "source": "VirusTotal",
-                "is_threat": is_threat,
-                "confidence": vt_confidence,
-                "details": f"{malicious_count} malicious, {suspicious_count} suspicious vendors"
-            })
-            total_confidence += vt_confidence * 0.25  # 25% weight
-            if is_threat:
-                threat_indicators += 1
-                all_risk_factors.append(f"Detected by {malicious_count + suspicious_count} security vendors")
-    
-    # ========== DECISION LOGIC ==========
-    
-    # Final confidence is weighted average
-    final_confidence = min(total_confidence, 0.99)  # Cap at 99%
-    
-    # Threat determination: based on number of sources flagging + confidence threshold
-    is_phishing = False
-    status = "Safe"
-    
-    # Multiple sources agreement = definite threat
-    if threat_indicators >= 2:
-        is_phishing = True
-        status = "Dangerous"
-        final_confidence = min(max(final_confidence, 0.88), 0.99)
-    # Single source + high confidence = suspicious
-    elif threat_indicators == 1 and final_confidence > 0.65:
-        is_phishing = True
-        status = "Suspicious"
-        final_confidence = min(final_confidence, 0.82)
-    # High local confidence alone = suspicious
-    elif final_confidence > 0.70:
-        is_phishing = True
-        status = "Suspicious"
-    else:
-        # Safe - set confidence to show how safe (NOT inverted)
-        status = "Safe"
-        # For safe URLs, confidence shows safety level
-        final_confidence = 1.0 - final_confidence if final_confidence > 0 else 0.95
-    
-    # Remove duplicates in risk factors
-    all_risk_factors = list(set(all_risk_factors))
-    
-    return {
-        "url": url,
-        "status": status,
-        "is_phishing": is_phishing,
-        "confidence": round(final_confidence, 3),
-        "threat_indicators": threat_indicators,
-        "risk_factors": all_risk_factors,
-        "scan_results": results,
-        "timestamp": datetime.now().isoformat()
-    }
+        
+        # Validate URL
+        if not url.startswith(('http://', 'https://')):
+            url = 'https://' + url
+        
+        # Quick check against safe domains
+        domain = urlparse(url).netloc.lower().replace('www.', '')
+        if domain in self.safe_domains:
+            results["confidence_score"] = 0.02
+            results["threat_level"] = "SAFE"
+            return results
+        
+        # 1. LOCAL HEURISTICS (40% weight) - AGGRESSIVE
+        local_score, local_risks = self.analyze_url_structure(url)
+        results["sources"]["local_heuristics"] = {
+            "confidence": local_score,
+            "risks": local_risks
+        }
+        
+        # 2. URLHAUS CHECK (30% weight)
+        urlhaus_score, urlhaus_risk = self.check_urlhaus(url)
+        if urlhaus_risk:
+            results["risk_factors"].append(urlhaus_risk)
+        results["sources"]["urlhaus"] = {
+            "confidence": urlhaus_score,
+            "message": urlhaus_risk or "Not in database"
+        }
+        
+        # 3. GOOGLE SAFE BROWSING (20% weight)
+        gsb_score, gsb_risk = self.check_google_safe_browsing(url)
+        if gsb_risk:
+            results["risk_factors"].append(gsb_risk)
+        results["sources"]["google_safe_browsing"] = {
+            "confidence": gsb_score,
+            "message": gsb_risk or "Not flagged"
+        }
+        
+        # 4. VIRUSTOTAL (10% weight)
+        vt_score, vt_risk = self.check_virustotal(url)
+        if vt_risk:
+            results["risk_factors"].append(vt_risk)
+        results["sources"]["virustotal"] = {
+            "confidence": vt_score,
+            "message": vt_risk or "Not detected"
+        }
+        
+        # Calculate weighted average
+        # LOCAL: 40%, URLHAUS: 30%, GSB: 20%, VT: 10%
+        final_score = (
+            local_score * 0.40 +
+            urlhaus_score * 0.30 +
+            gsb_score * 0.20 +
+            vt_score * 0.10
+        )
+        
+        results["confidence_score"] = round(min(final_score, 0.99), 2)
+        
+        # Determine threat level
+        if results["confidence_score"] >= 0.80:
+            results["threat_level"] = "DANGEROUS"
+        elif results["confidence_score"] >= 0.65:
+            results["threat_level"] = "SUSPICIOUS"
+        elif results["confidence_score"] >= 0.50:
+            results["threat_level"] = "BORDERLINE"
+        else:
+            results["threat_level"] = "SAFE"
+        
+        # Add local risks to overall risks
+        results["risk_factors"].extend(local_risks)
+        
+        return results
+
+# Initialize scanner
+scanner = URLPhishingScanner()
+
+def scan_url(url):
+    """API endpoint function"""
+    return scanner.scan(url)
