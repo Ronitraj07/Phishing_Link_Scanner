@@ -6,15 +6,15 @@ from scanner import scan_url
 
 app = FastAPI()
 
-# Dynamic CORS configuration
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-
+# CORS Configuration - Allow your Vercel frontend
 CORS_ORIGINS = [
-    FRONTEND_URL,  # Vercel frontend URL from environment
+    "https://phishing-ronitraj.vercel.app",  # Your Vercel deployment
     "http://localhost:3000",  # Local development
-    "http://localhost:8000",  # Local backend
+    "http://localhost:8000",
+    "http://localhost:5173",  # Vite dev server
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8000",
+    "http://127.0.0.1:5173",
 ]
 
 app.add_middleware(
@@ -25,52 +25,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Request model for POST requests
 class ScanRequest(BaseModel):
     url: str
 
 @app.get("/")
 def read_root():
-    """Health check endpoint"""
     return {"status": "Backend is running!", "environment": os.getenv("ENV", "development")}
 
 @app.get("/api/health")
 def health_check():
-    """Health check endpoint for deployment verification"""
     return {"status": "Backend is running!", "environment": os.getenv("ENV", "production")}
 
 @app.post("/api/scan")
 def api_scan_endpoint(request: ScanRequest):
-    """API endpoint to scan a URL for phishing indicators - POST method"""
     url = request.url
     result = scan_url(url)
     
-    # Convert response to match frontend expectations
+    is_dangerous = "Dangerous" in result.get("status", "") or "Suspicious" in result.get("status", "")
+    
     return {
         "url": url,
-        "is_phishing": "Dangerous" in result.get("status", "") or "Suspicious" in result.get("status", ""),
+        "is_phishing": is_dangerous,
         "status": result.get("status", "Unknown"),
         "details": {
-            "confidence": 0.85 if "Dangerous" in result.get("status", "") else 0.5,
-            "risk_factors": [],
-            "domain": url
+            "confidence": 0.85 if is_dangerous else 0.5,
+            "risk_factors": result.get("risk_factors", []),
+            "domain": url.split('/')[2] if '/' in url else url
         }
     }
 
 @app.get("/api/scan")
 def api_scan_get(url: str):
-    """API endpoint to scan a URL for phishing indicators - GET method (fallback)"""
     result = scan_url(url)
     
-    # Convert response to match frontend expectations
+    is_dangerous = "Dangerous" in result.get("status", "") or "Suspicious" in result.get("status", "")
+    
     return {
         "url": url,
-        "is_phishing": "Dangerous" in result.get("status", "") or "Suspicious" in result.get("status", ""),
+        "is_phishing": is_dangerous,
         "status": result.get("status", "Unknown"),
         "details": {
-            "confidence": 0.85 if "Dangerous" in result.get("status", "") else 0.5,
-            "risk_factors": [],
-            "domain": url
+            "confidence": 0.85 if is_dangerous else 0.5,
+            "risk_factors": result.get("risk_factors", []),
+            "domain": url.split('/')[2] if '/' in url else url
         }
     }
 
