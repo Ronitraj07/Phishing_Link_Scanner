@@ -1060,3 +1060,41 @@ body.light-mode .flag-item code {
         min-width: 44px;
     }
 }
+
+/* Single positioning context */
+.input-wrapper {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+/* Icon: one source of truth */
+.input-icon {
+    position: absolute;
+    left: 1rem !important;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--primary-light);
+    font-size: 1.1rem;
+    pointer-events: none;
+    z-index: 5;
+    line-height: 1;
+}
+
+/* Input padding synced with icon */
+.url-input {
+    padding-left: 3rem !important;
+}
+
+/* Mobile layout only — NO icon movement */
+@media (max-width: 768px) {
+    .input-group {
+        flex-direction: column;
+    }
+
+    .scan-btn {
+        width: 100%;
+    }
+}
+
