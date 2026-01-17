@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="PhishGuard - Detect phishing links and protect your digital identity with advanced URL scanning">
+    <meta name="theme-color" content="#6366f1">
     <title>PhishGuard - Protect Yourself from Phishing</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -19,7 +21,7 @@
                 <li><a href="#scanner" class="nav-link">Scanner</a></li>
                 <li><a href="#learn" class="nav-link">Learn</a></li>
                 <li><a href="#protect" class="nav-link">Protection</a></li>
-                <li><button class="theme-toggle" title="Toggle dark/light mode">
+                <li><button class="theme-toggle" title="Toggle dark/light mode" aria-label="Toggle theme">
                     <i class="fas fa-moon"></i>
                 </button></li>
             </ul>
@@ -27,7 +29,7 @@
     </nav>
 
     <!-- Hero Section -->
-    <section class="hero">
+    <section class="hero" id="hero">
         <div class="hero-content">
             <h1 class="hero-title">Stay Safe Online</h1>
             <p class="hero-subtitle">Detect phishing links and protect your digital identity</p>
@@ -40,150 +42,39 @@
     </section>
 
     <!-- Scanner Section -->
-   <section class="scanner-section">
-    <div class="section-container">
-        <div class="scanner-card glass-effect">
-            <div class="input-group">
-    <div class="input-wrapper">
-        <i class="fas fa-search input-icon"></i>
-        <input type="url" id="urlInput" class="url-input"
-               placeholder="Enter any URL you want to check...">
-    </div>
-
-    <button id="scanBtn" class="scan-btn">
-        <i class="fas fa-search"></i> Scan Now
-    </button>
-</div>
-
-
-            <div id="loading" class="hidden">
-                <div class="spinner"></div>
-                <p style="color: var(--primary-light); margin-top: 1rem;">Analyzing URL...</p>
-            </div>
-
-            <div id="result" class="hidden">
-                <div id="resultContent" class="result-content"></div>
-            </div>
-
-            <div class="scan-history">
-                <div class="history-label">
-                    <i class="fas fa-clock"></i> Recent Scans
+    <section class="scanner-section" id="scanner">
+        <div class="section-container">
+            <div class="scanner-card glass-effect">
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-search input-icon"></i>
+                        <input type="url" id="urlInput" class="url-input" 
+                               placeholder="Enter any URL you want to check..." 
+                               aria-label="URL input for scanning">
+                    </div>
+                    <button id="scanBtn" class="scan-btn" aria-label="Scan URL">
+                        <i class="fas fa-search"></i> Scan Now
+                    </button>
                 </div>
-                <div id="historyList"></div>
+
+                <div id="loading" class="hidden" role="status" aria-live="polite">
+                    <div class="spinner"></div>
+                    <p style="color: var(--primary-light); margin-top: 1rem;">Analyzing URL...</p>
+                </div>
+
+                <div id="result" class="hidden" role="status" aria-live="assertive">
+                    <div id="resultContent" class="result-content"></div>
+                </div>
+
+                <div class="scan-history">
+                    <div class="history-label">
+                        <i class="fas fa-clock"></i> Recent Scans
+                    </div>
+                    <div id="historyList"></div>
+                </div>
             </div>
         </div>
-    </div>
-</section>
-
-<script>
-const scanBtn = document.getElementById('scanBtn');
-const urlInput = document.getElementById('urlInput');
-const loading = document.getElementById('loading');
-const result = document.getElementById('result');
-const resultContent = document.getElementById('resultContent');
-const historyList = document.getElementById('historyList');
-const API_URL = 'https://phishing-link-scanner-1.onrender.com/api/scan';
-
-scanBtn.addEventListener('click', scanURL);
-urlInput.addEventListener('keypress', (e) => e.key === 'Enter' && scanURL());
-
-async function scanURL() {
-    const url = urlInput.value.trim();
-    if (!url) {
-        alert('Please enter a URL');
-        return;
-    }
-
-    loading.classList.remove('hidden');
-    result.classList.add('hidden');
-    resultContent.innerHTML = '';
-
-    try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
-        });
-
-        const data = await response.json();
-        displayResult(data);
-        addToHistory(data);
-    } catch (error) {
-        resultContent.innerHTML = `<p style="color: red;">Error scanning URL: ${error.message}</p>`;
-    } finally {
-        loading.classList.add('hidden');
-        result.classList.remove('hidden');
-    }
-}
-
-function displayResult(data) {
-    const isSafe = data.threat_level.includes('SAFE');
-    const threatClass = isSafe ? 'result-safe' : 'result-dangerous';
-    const scorePercent = Math.round(data.confidence_score * 100);
-    
-    const html = `
-        <div class="${threatClass}">
-            <h2 style="margin-bottom: 0.5rem; font-size: 2rem; margin-top: 0;">
-                ${data.threat_level}
-            </h2>
-            
-            <div style="font-size: 1.5rem; margin: 1rem 0; font-weight: bold; letter-spacing: 1px;">
-                CONFIDENCE SCORE: ${scorePercent}%
-            </div>
-
-            <div style="width: 100%; background: rgba(0,0,0,0.3); height: 8px; border-radius: 4px; margin: 1rem 0; overflow: hidden;">
-                <div style="background: ${scorePercent > 70 ? '#ef4444' : '#10b981'}; width: ${scorePercent}%; height: 100%; transition: width 0.3s;"></div>
-            </div>
-
-            <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 10px; margin: 1.5rem 0; text-align: left;">
-                <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem;">📊 Risk Factors Found:</h3>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    ${data.risk_factors.map((r, i) => `
-                        <li style="margin: 0.8rem 0; line-height: 1.6; padding-left: 1.5rem; position: relative;">
-                            <span style="position: absolute; left: 0;">${i + 1}.</span>
-                            ${r}
-                        </li>
-                    `).join('')}
-                </ul>
-            </div>
-
-            <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px; margin-top: 1rem; font-size: 0.9rem; line-height: 1.8;">
-                <strong>🔗 URL:</strong> <code style="word-break: break-all; background: rgba(0,0,0,0.3); padding: 0.2rem 0.5rem; border-radius: 3px;">${data.url}</code><br>
-                <strong>🌐 Domain:</strong> <strong style="color: var(--primary-light);">${data.domain || 'N/A'}</strong><br>
-                <strong>⏰ Scanned:</strong> ${new Date(data.timestamp).toLocaleString()}
-            </div>
-
-            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(99, 102, 241, 0.1); border-left: 4px solid var(--primary-light); border-radius: 6px;">
-                ${scorePercent >= 80 ? '🚨 <strong>DO NOT VISIT</strong> this URL. It shows strong phishing indicators.' : 
-                  scorePercent >= 65 ? '⚠️ <strong>CAUTION</strong>: This URL has suspicious characteristics. Verify before visiting.' :
-                  scorePercent >= 50 ? '❓ <strong>BORDERLINE</strong>: Exercise caution. Check the domain carefully.' :
-                  '✅ <strong>APPEARS SAFE</strong>: No major phishing indicators detected.'}
-            </div>
-        </div>
-    `;
-    
-    resultContent.innerHTML = html;
-}
-
-function addToHistory(data) {
-    const item = document.createElement('div');
-    item.className = 'history-item';
-    
-    const score = Math.round(data.confidence_score * 100);
-    const indicator = score >= 70 ? '🔴' : score >= 50 ? '🟡' : '✅';
-    const shortUrl = data.url.length > 40 ? data.url.substring(0, 40) + '...' : data.url;
-    
-    item.innerHTML = `
-        <span>${indicator} ${shortUrl}</span>
-        <span style="font-size: 0.85rem; color: var(--primary-light); font-weight: bold;">${score}%</span>
-    `;
-    
-    historyList.insertBefore(item, historyList.firstChild);
-    if (historyList.children.length > 5) {
-        historyList.removeChild(historyList.lastChild);
-    }
-}
-</script>
+    </section>
 
     <!-- What is Phishing Section -->
     <section id="learn" class="learn-section">
@@ -391,7 +282,7 @@ function addToHistory(data) {
                     <ul>
                         <li>Report phishing emails to the company</li>
                         <li>Forward suspicious emails to Anti-Phishing WG</li>
-                        <li>Report to FTC at ReportFraud.ftc.gov</li>
+                        <li>Report to CERT-In at www.cert-in.org.in</li>
                         <li>Educate friends and family about risks</li>
                     </ul>
                 </div>
@@ -441,7 +332,7 @@ function addToHistory(data) {
                 <div class="step glass-effect">
                     <div class="step-number">6</div>
                     <h4>Report to Authorities</h4>
-                    <p>Report the incident to IC3.gov (FBI), your local police, and the FTC. Keep documentation of all communications.</p>
+                    <p>Report the incident to CERT-In (www.cert-in.org.in), cybercrime.gov.in, your local police, and I4C. Keep documentation of all communications.</p>
                 </div>
             </div>
         </div>
@@ -491,16 +382,17 @@ function addToHistory(data) {
                     <li><a href="#protect">Protection</a></li>
                 </ul>
             </div>
-                <div class="footer-section">
-                    <h4>Resources</h4>
-                    <ul>
-                    <li><a href="https://www.cert-in.org.in/" target="_blank">CERT-In</a></li>
-                    <li><a href="https://i4c.mha.gov.in/" target="_blank">I4C</a></li>
-                    <li><a href="https://cybercrime.gov.in/" target="_blank">Cybercrime Portal</a></li>
-                    <li><a href="https://www.meity.gov.in/" target="_blank">MeitY</a></li>
-                    <li><a href="https://cytrain.ncrb.gov.in/" target="_blank">CyTrain</a></li>
+            <div class="footer-section">
+                <h4>🇮🇳 Indian Resources</h4>
+                <ul style="columns: 2; column-gap: 1.5rem;">
+                    <li><a href="https://www.cert-in.org.in/" target="_blank" rel="noopener noreferrer">CERT-In</a></li>
+                    <li><a href="https://i4c.mha.gov.in/" target="_blank" rel="noopener noreferrer">I4C</a></li>
+                    <li><a href="https://cybercrime.gov.in/" target="_blank" rel="noopener noreferrer">Cybercrime Portal</a></li>
+                    <li><a href="https://www.meity.gov.in/" target="_blank" rel="noopener noreferrer">MeitY</a></li>
+                    <li><a href="https://cytrain.ncrb.gov.in/" target="_blank" rel="noopener noreferrer">CyTrain</a></li>
                 </ul>
             </div>
+        </div>
         <div class="footer-bottom">
             <p>&copy; 2025 PhishGuard. Stay safe online. | Made with <i class="fas fa-heart"></i> for cybersecurity by Ronitraj</p>
         </div>
@@ -508,6 +400,127 @@ function addToHistory(data) {
 
     <script src="script.js"></script>
     <script>
+        const scanBtn = document.getElementById('scanBtn');
+        const urlInput = document.getElementById('urlInput');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const resultContent = document.getElementById('resultContent');
+        const historyList = document.getElementById('historyList');
+        const API_URL = 'https://phishing-link-scanner-1.onrender.com/api/scan';
+
+        // Event listeners
+        scanBtn.addEventListener('click', scanURL);
+        urlInput.addEventListener('keypress', (e) => e.key === 'Enter' && scanURL());
+
+        async function scanURL() {
+            const url = urlInput.value.trim();
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+
+            loading.classList.remove('hidden');
+            result.classList.add('hidden');
+            resultContent.innerHTML = '';
+            scanBtn.disabled = true;
+            scanBtn.style.opacity = '0.6';
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                if (!response.ok) throw new Error('API request failed');
+                
+                const data = await response.json();
+                displayResult(data);
+                addToHistory(data);
+            } catch (error) {
+                resultContent.innerHTML = `<p style="color: #ef4444; font-weight: bold;">⚠️ Error scanning URL: ${error.message}</p>`;
+            } finally {
+                loading.classList.add('hidden');
+                result.classList.remove('hidden');
+                scanBtn.disabled = false;
+                scanBtn.style.opacity = '1';
+            }
+        }
+
+        function displayResult(data) {
+            const isSafe = data.threat_level.includes('SAFE');
+            const threatClass = isSafe ? 'result-safe' : 'result-dangerous';
+            const scorePercent = Math.round(data.confidence_score * 100);
+            
+            const html = `
+                <div class="${threatClass}">
+                    <h2 style="margin-bottom: 0.5rem; font-size: 2rem; margin-top: 0;">
+                        ${data.threat_level}
+                    </h2>
+                    
+                    <div style="font-size: 1.5rem; margin: 1rem 0; font-weight: bold; letter-spacing: 1px;">
+                        CONFIDENCE SCORE: ${scorePercent}%
+                    </div>
+
+                    <div style="width: 100%; background: rgba(0,0,0,0.3); height: 8px; border-radius: 4px; margin: 1rem 0; overflow: hidden;">
+                        <div style="background: ${scorePercent > 70 ? '#ef4444' : '#10b981'}; width: ${scorePercent}%; height: 100%; transition: width 0.3s;"></div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 10px; margin: 1.5rem 0; text-align: left;">
+                        <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem;">📊 Risk Factors Found:</h3>
+                        <ul style="list-style: none; padding: 0; margin: 0;">
+                            ${data.risk_factors.map((r, i) => `
+                                <li style="margin: 0.8rem 0; line-height: 1.6; padding-left: 1.5rem; position: relative;">
+                                    <span style="position: absolute; left: 0; color: var(--primary-light); font-weight: bold;">${i + 1}.</span>
+                                    ${r}
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px; margin-top: 1rem; font-size: 0.9rem; line-height: 1.8;">
+                        <strong>🔗 URL:</strong> <code style="word-break: break-all; background: rgba(0,0,0,0.3); padding: 0.2rem 0.5rem; border-radius: 3px;">${escapeHtml(data.url)}</code><br>
+                        <strong>🌐 Domain:</strong> <strong style="color: var(--primary-light);">${data.domain || 'N/A'}</strong><br>
+                        <strong>⏰ Scanned:</strong> ${new Date(data.timestamp).toLocaleString()}
+                    </div>
+
+                    <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(99, 102, 241, 0.1); border-left: 4px solid var(--primary-light); border-radius: 6px;">
+                        ${scorePercent >= 80 ? '🚨 <strong>DO NOT VISIT</strong> this URL. It shows strong phishing indicators.' : 
+                          scorePercent >= 65 ? '⚠️ <strong>CAUTION</strong>: This URL has suspicious characteristics. Verify before visiting.' :
+                          scorePercent >= 50 ? '❓ <strong>BORDERLINE</strong>: Exercise caution. Check the domain carefully.' :
+                          '✅ <strong>APPEARS SAFE</strong>: No major phishing indicators detected.'}
+                    </div>
+                </div>
+            `;
+            
+            resultContent.innerHTML = html;
+        }
+
+        function addToHistory(data) {
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            
+            const score = Math.round(data.confidence_score * 100);
+            const indicator = score >= 70 ? '🔴' : score >= 50 ? '🟡' : '✅';
+            const shortUrl = data.url.length > 40 ? data.url.substring(0, 40) + '...' : data.url;
+            
+            item.innerHTML = `
+                <span>${indicator} ${escapeHtml(shortUrl)}</span>
+                <span style="font-size: 0.85rem; color: var(--primary-light); font-weight: bold;">${score}%</span>
+            `;
+            
+            historyList.insertBefore(item, historyList.firstChild);
+            if (historyList.children.length > 5) {
+                historyList.removeChild(historyList.lastChild);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         // Scroll to top function
         function scrollToTop(event) {
             event.preventDefault();
@@ -522,6 +535,21 @@ function addToHistory(data) {
             const navBrand = document.querySelector('.nav-brand');
             if (navBrand) {
                 navBrand.style.cursor = 'pointer';
+            }
+
+            // Theme toggle
+            const themeToggle = document.querySelector('.theme-toggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', () => {
+                    document.body.classList.toggle('light-mode');
+                    localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+                });
+
+                // Load saved theme
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'light') {
+                    document.body.classList.add('light-mode');
+                }
             }
         });
     </script>
