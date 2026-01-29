@@ -152,17 +152,23 @@ function displayResult(data, url) {
     let resultIcon = '';
     let detailsHtml = '';
 
-    if (data.is_phishing) {
-        resultClass = 'result-dangerous';
-        resultTitle = '⚠️ WARNING: PHISHING DETECTED';
-        resultMessage = 'This URL appears to be a phishing website. DO NOT enter your credentials or personal information.';
-        resultIcon = '🚨';
-    } else {
-        resultClass = 'result-safe';
-        resultTitle = '✅ SAFE URL';
-        resultMessage = 'This URL appears to be legitimate and safe to visit.';
-        resultIcon = '🛡️';
-    }
+    const isPhishing =
+    data.is_phishing === true ||
+    (typeof data.threat_level === 'string' &&
+     data.threat_level.toLowerCase().includes('phishing'));
+
+if (isPhishing) {
+    resultClass = 'result-dangerous';
+    resultTitle = '⚠️ WARNING: PHISHING DETECTED';
+    resultMessage = 'This URL appears to be a phishing website. DO NOT enter your credentials or personal information.';
+    resultIcon = '🚨';
+} else {
+    resultClass = 'result-safe';
+    resultTitle = '✅ SAFE URL';
+    resultMessage = 'This URL appears to be legitimate and safe to visit.';
+    resultIcon = '🛡️';
+}
+
 
     if (data.details) {
         detailsHtml = `
