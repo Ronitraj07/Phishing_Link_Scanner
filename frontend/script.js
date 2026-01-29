@@ -141,6 +141,26 @@ function handleKeyPress(event) {
     }
 }
 
+// 🔘 Wire up Scan Button & Enter key
+document.addEventListener('DOMContentLoaded', () => {
+    const scanBtn = document.getElementById('scanBtn');
+    const urlInput = document.getElementById('urlInput');
+
+    if (!scanBtn || !urlInput) {
+        console.error('❌ Scan button or URL input not found in DOM');
+        return;
+    }
+
+    scanBtn.addEventListener('click', scanUrl);
+
+    urlInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            scanUrl();
+        }
+    });
+});
+
+
 // Display Results
 function displayResult(data, url) {
     const resultBox = document.getElementById('result-box');
